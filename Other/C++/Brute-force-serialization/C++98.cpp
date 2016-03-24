@@ -131,9 +131,6 @@ struct has_member_ ## XXX { \
 	enum { value = sizeof(test<Derived>(0)) == sizeof(yes) }; \
 }
 
-template<typename T>
-void archive(T&, Archive& arc);
-
 #define ARCHIVE_MEMBER(XXX) \
 template<class T> \
 typename enable_if<has_member_## XXX<T>::value,void>::type archive_member_## XXX(T& obj, Archive& arc)\

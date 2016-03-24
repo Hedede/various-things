@@ -94,9 +94,6 @@ void _archive(T& obj, Archive& arc) // example
 	archive_member_XXX(obj,arc);
 }
 
-template<typename T>
-void archive(T&, Archive& arc);
-
 #define HAS_MEMBER_VAR(XXX) \
 template<class T> using member_## XXX = decltype(std::declval<T>().XXX); \
 template<class T> constexpr bool has_member_## XXX = is_detected<member_## XXX,T>;
