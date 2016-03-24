@@ -19,8 +19,8 @@ struct has_member_XXX {
 
 	template <class C, C> struct ChT;
 
-	template <class C> static yes (&test(ChT<int Fallback::*, &C::XXX>*));
-	template <class C> static no (&test(...));
+	template <class C> static no   test(ChT<int Fallback::*, &C::XXX>*);
+	template <class C> static yes  test(...);
 
 	enum { value = sizeof(test<Derived>(0)) == sizeof(yes) };
 };
@@ -125,8 +125,8 @@ struct has_member_ ## XXX { \
 \
 	template <class C, C> struct ChT; \
 \
-	template <class C> static no  (&test(ChT<int Fallback::*, &C::XXX>*)); \
-	template <class C> static yes (&test(...)); \
+	template <class C> static no  test(ChT<int Fallback::*, &C::XXX>*); \
+	template <class C> static yes test(...); \
 \
 	enum { value = sizeof(test<Derived>(0)) == sizeof(yes) }; \
 }
