@@ -1,5 +1,6 @@
+/* unused
 template <class T>
-class has_member_archive { // unused
+class has_member_archive {
 	typedef char yes;
 	typedef long no;
 
@@ -7,7 +8,7 @@ class has_member_archive { // unused
 	template <class C> static no test(...);
 public:
 	enum { value = sizeof(test<T>(0)) == sizeof(yes) };
-};
+}; */
 
 template <class T>
 struct has_member_XXX {
@@ -145,14 +146,10 @@ typename enable_if</**/!/**/has_member_## XXX<T>::value,void>::type archive_memb
 
 // ar_ — POOR MAN'S archivable ATTRIBUTE
 // expand as needed
-#define LIST X(ar_pos) X(ar_dir) X(ar_transform) X(ar_a) X(ar_b) X(ar_c) X(ar_x) X(ar_y) X(ar_z)
+#define LIST X(ar_pos) X(ar_dir) X(ar_transform) X(ar_rotation) X(ar_state) X(ar_a) X(ar_b) X(ar_c) X(ar_d) X(ar_e) X(ar_f) X(ar_g) X(ar_h) X(ar_i) X(ar_j) X(ar_k) X(ar_l) X(ar_m) X(ar_n) X(ar_o) X(ar_p) X(ar_q) X(ar_r) X(ar_s) X(ar_t) X(ar_u) X(ar_w) X(ar_v) X(ar_x) X(ar_y) X(ar_z)
 
-#define X(XXX) \
-	HAS_MEMBER_VAR(XXX); \
-	ARCHIVE_MEMBER(XXX)
-
+#define X(XXX) HAS_MEMBER_VAR(XXX); ARCHIVE_MEMBER(XXX)
 LIST
-
 #undef X
 
 
