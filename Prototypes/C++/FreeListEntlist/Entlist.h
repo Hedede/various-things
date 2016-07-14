@@ -44,7 +44,7 @@ Entity* EntManager::GetEntity(EntId id)
 	return ent;
 }
 
-void* EntManager::DeleteEntity(EntId id)
+void EntManager::DeleteEntity(EntId id)
 {
 	auto ent = GetEntity(id);
 	if (ent)
