@@ -231,10 +231,13 @@ struct variant : variant_shared {
 		return index;
 	}
 
+	/*!
+	 * Get index of particular type
+	 */
 	template<typename T>
-	index_t index_of() const
+	static constexpr index_t index_of()
 	{
-		return get_index<T, Ts...>;
+		return index_t(get_index<T, Ts...>);
 	}
 
 	template<typename Functor, typename...Args>
