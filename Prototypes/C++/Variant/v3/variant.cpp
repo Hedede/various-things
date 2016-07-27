@@ -134,6 +134,11 @@ struct variant : variant_shared {
 	template<typename T>
 	bool try_set(T const& v)
 	{
+		if (index == invalid) {
+			construct<T>(v);
+			index = index_t(get_index<T, Ts...>);
+			return true;
+		}
 		if (check_type<T>()) {
 			assign(v);
 			return true;
