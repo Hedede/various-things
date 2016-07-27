@@ -77,10 +77,32 @@ struct variant : variant_shared {
 
 	template<typename... Os>
 	variant(variant<Os...> const& other)
+		: index{ other.apply(GetIndex{}) }
 	{
-		index = other.template apply(GetIndex{});
-		other.template apply(Copy{*this});
+		other.apply(Copy{*this});
 
+	}
+
+	template<typename... Os>
+	variant(variant<Os...>&& other)
+		: index{ other.apply(GetIndex{}) }
+	{
+		other.apply(Move{*this});
+		other.reset();
+	}
+
+	template<typename... Os>
+	variant& operator=(variant<Os...> const& other)
+	{
+		index = other.apply(GetIndex{});
+		other.apply(Copy{*this});
+	}
+
+	template<typename... Os>
+	variant& operator=(variant<Os...>&& other)
+	{
+		other.apply(Move{*this});
+		other.reset();
 	}
 
 	template<typename T>
@@ -132,6 +154,11 @@ struct variant : variant_shared {
 			return;
 		destroy();
 		index = invalid;
+	}
+
+	size_t type_index() const
+	{
+		return index;
 	}
 
 private:
@@ -272,4 +299,13 @@ int main()
 
 	auto size = find_index<ISCONST, const int, const float, const int>;
 	std::cout << size << "\n";
+
+	var1.set(std::string("555"));
+
+	variant<int, float, std::string> var3;
+	var3 = std::move(var1);
+
+	std::cout << var3.type_index() << "\n";
+	std::cout << *var3.get<std::string>() << "\n";
+	std::cout << var1.type_index() << "\n";
 }
