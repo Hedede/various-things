@@ -105,7 +105,6 @@ constexpr size_t find_index = _impl::find_index<Checker, Ts...>();
 
 template <typename... Ts>
 struct variant {
-
 	static constexpr size_t size  = std::max({sizeof(Ts)...});
 	static constexpr size_t align = std::max({alignof(Ts)...});
 	static constexpr size_t invalid = std::numeric_limits<size_t>::max();
@@ -130,10 +129,28 @@ struct variant {
 		}
 	};
 
+	struct Copy {
+		using return_type = void;
+
+		Copy(variant& self)
+			: self(self)
+		{}
+
+		template<typename T>
+		void operator()(T const* value)
+		{
+			self.construct<T>(*value);
+		}
+
+	private:
+		variant& self;
+	};
+
 	template<typename... Os>
 	variant(variant<Os...> const& other)
 	{
-		index = other.template apply<GetIndex>();
+		index = other.template apply(GetIndex{});
+		other.template apply(Copy{*this});
 
 	}
 
@@ -196,21 +213,21 @@ struct variant {
 
 	void destroy()
 	{
-		apply<Destroy>();
+		apply(Destroy{});
 	}
 
 	template<typename Functor, typename...Args>
-	auto apply(Args&&... args) -> typename Functor::return_type
+	auto apply(Functor f, Args&&... args) -> typename Functor::return_type
 	{
 		type_switch<false, Ts...> tswitch{};
-		return tswitch(index, (void*)&storage, Functor{}, std::forward<Args>(args)...);
+		return tswitch(index, (void*)&storage, f, std::forward<Args>(args)...);
 	}
 
 	template<typename Functor, typename...Args>
-	auto apply(Args&&... args) const -> typename Functor::return_type
+	auto apply(Functor f, Args&&... args) const -> typename Functor::return_type
 	{
 		type_switch<true, Ts...> tswitch{};
-		return tswitch(index, (void*)&storage, Functor{}, std::forward<Args>(args)...);
+		return tswitch(index, (void*)&storage, f, std::forward<Args>(args)...);
 	}
 
 	Storage storage;
@@ -232,6 +249,8 @@ int main()
 
 	std::string s;
 	var1.get(s);
+	std::cout << s << "\n";
+	var2.get(s);
 	std::cout << s << "\n";
 
 	auto i = var1.get<int>();
