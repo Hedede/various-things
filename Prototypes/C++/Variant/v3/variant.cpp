@@ -63,7 +63,6 @@ template <typename... Ts>
 struct variant : variant_shared {
 	static constexpr size_t size  = std::max({sizeof(Ts)...});
 	static constexpr size_t align = std::max({alignof(Ts)...});
-	static constexpr size_t invalid = std::numeric_limits<size_t>::max();
 
 	using Storage = typename std::aligned_storage<size, align>::type;
 
@@ -77,16 +76,22 @@ struct variant : variant_shared {
 
 	template<typename... Os>
 	variant(variant<Os...> const& other)
-		: index{ other.apply(GetIndex{}) }
 	{
+		if (other.index == variant<Os...>::invalid)
+			return;
+
+		index = other.apply(GetIndex{});
 		other.apply(Copy{*this});
 
 	}
 
 	template<typename... Os>
 	variant(variant<Os...>&& other)
-		: index{ other.apply(GetIndex{}) }
 	{
+		if (other.index == variant<Os...>::invalid)
+			return;
+
+		index = other.apply(GetIndex{});
 		other.apply(Move{*this});
 		other.reset();
 	}
@@ -94,35 +99,38 @@ struct variant : variant_shared {
 	template<typename... Os>
 	variant& operator=(variant<Os...> const& other)
 	{
+		if (other.index == variant<Os...>::invalid)
+			return *this;
+
 		index = other.apply(GetIndex{});
 		other.apply(Copy{*this});
+		return *this;
 	}
 
 	template<typename... Os>
 	variant& operator=(variant<Os...>&& other)
 	{
+		if (other.index == variant<Os...>::invalid)
+			return *this;
+
 		other.apply(Move{*this});
 		other.reset();
+		return *this;
 	}
 
-	template<typename T>
-	bool check() const
-	{
-		return index == get_index<T, Ts...>;
-	}
 
 	template<typename T>
 	void set(T const& v)
 	{
 		reset();
 		construct<T>(v);
-		index = get_index<T, Ts...>;
+		index = index_t(get_index<T, Ts...>);
 	}
 
 	template<typename T>
 	bool try_set(T const& v)
 	{
-		if (check<T>()) {
+		if (check_type<T>()) {
 			set(v);
 			return true;
 		}
@@ -132,7 +140,7 @@ struct variant : variant_shared {
 	template<typename T>
 	bool get(T& target) const
 	{
-		if (check<T>()) {
+		if (check_type<T>()) {
 			target = *reinterpret_cast<T const*>(&storage);
 			return true;
 		}
@@ -142,7 +150,7 @@ struct variant : variant_shared {
 	template<typename T>
 	std::experimental::optional<T> get()
 	{
-		if (check<T>())
+		if (check_type<T>())
 			return *reinterpret_cast<T const*>(&storage);
 
 		return std::experimental::nullopt;
@@ -156,7 +164,20 @@ struct variant : variant_shared {
 		index = invalid;
 	}
 
-	size_t type_index() const
+	/*!
+	 * This type is used to avoid accidental comparisons of
+	 * indices from different variant types.
+	 */
+	enum class index_t : size_t { };
+	static constexpr index_t invalid = index_t(std::numeric_limits<size_t>::max());
+
+	template<typename T>
+	bool check_type() const
+	{
+		return index == index_t(get_index<T, Ts...>);
+	}
+
+	index_t type_index() const
 	{
 		return index;
 	}
@@ -185,12 +206,12 @@ private:
 	using variant_shared::Destroy;
 
 	struct GetIndex {
-		using return_type = size_t;
+		using return_type = index_t;
 
 		template<typename T>
-		size_t operator()(T const*)
+		index_t operator()(T const*)
 		{
-			return get_index<T,Ts...>;
+			return index_t(get_index<T,Ts...>);
 		}
 	};
 
@@ -251,7 +272,7 @@ private:
 			(apply_functor<Functor, Ts, Args...>)...
 		};
 
-		return table[index]((void*)&storage, f, std::forward<Args>(args)...);
+		return table[(size_t)index]((void*)&storage, f, std::forward<Args>(args)...);
 	}
 
 	template<typename Functor, typename...Args>
@@ -264,12 +285,12 @@ private:
 			(apply_functor<Functor, Ts, Args...>)...
 		};
 
-		return table[index]((void*)&storage, f, std::forward<Args>(args)...);
+		return table[(size_t)index]((void*)&storage, f, std::forward<Args>(args)...);
 	}
 
 	// Storage
 	Storage storage;
-	size_t  index = invalid;
+	index_t index = invalid;
 };
 
 template<typename T>
@@ -277,13 +298,19 @@ struct ISCONST {
 	static constexpr bool value = !std::is_const<T>::value;
 };
 
+template<typename EC>
+auto to_underlying(EC ec) -> typename std::underlying_type<EC>::type
+{
+	return typename std::underlying_type<EC>::type(ec);
+}
+
 int main()
 {
 	variant<int, float, std::string> var1(std::string("222"));
 	variant<float, int, std::string> var2;
 	var2 = var1;
 
-	std::cout << std::boolalpha << var1.check<int>() << " " << var1.check<std::string>() << "\n";
+	std::cout << std::boolalpha << var1.check_type<int>() << " " << var1.check_type<std::string>() << "\n";
 
 	std::string s;
 	var1.get(s);
@@ -305,7 +332,7 @@ int main()
 	variant<int, float, std::string> var3;
 	var3 = std::move(var1);
 
-	std::cout << var3.type_index() << "\n";
+	std::cout << to_underlying(var3.type_index()) << "\n";
 	std::cout << *var3.get<std::string>() << "\n";
-	std::cout << var1.type_index() << "\n";
+	std::cout << to_underlying(var1.type_index()) << "\n";
 }
