@@ -368,8 +368,8 @@ private:
 	}
 
 	// Storage
-	Storage storage;
 	index_t index = invalid;
+	Storage storage;
 };
 
 template<typename T>
