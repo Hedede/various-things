@@ -272,7 +272,8 @@ private:
 			(apply_functor<Functor, Ts, Args...>)...
 		};
 
-		return table[(size_t)index]((void*)&storage, f, std::forward<Args>(args)...);
+		size_t index = size_t(this->index);
+		return table[index](reinterpret_cast<void*>(&storage), f, std::forward<Args>(args)...);
 	}
 
 	template<typename Functor, typename...Args>
@@ -285,7 +286,8 @@ private:
 			(apply_functor<Functor, Ts, Args...>)...
 		};
 
-		return table[(size_t)index]((void*)&storage, f, std::forward<Args>(args)...);
+		size_t index = size_t(this->index);
+		return table[index](reinterpret_cast<void const*>(&storage), f, std::forward<Args>(args)...);
 	}
 
 	// Storage
