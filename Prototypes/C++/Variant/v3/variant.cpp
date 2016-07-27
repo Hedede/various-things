@@ -164,7 +164,6 @@ struct variant : variant_shared {
 		} else {
 			reset();
 			construct<T>(v);
-			index = index_t(get_index<T, Ts...>);
 		}
 	}
 
@@ -173,7 +172,6 @@ struct variant : variant_shared {
 	{
 		if (empty()) {
 			construct<T>(v);
-			index = index_t(get_index<T, Ts...>);
 			return true;
 		}
 		if (check_type<T>()) {
@@ -263,6 +261,7 @@ private:
 	template<typename T, typename... Args>
 	void construct(Args&&... args)
 	{
+		index = index_t(get_index<T, Ts...>);
 		new (&storage) T(std::forward<Args>(args)...);
 	}
 
