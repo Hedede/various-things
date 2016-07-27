@@ -196,6 +196,12 @@ struct variant : variant_shared {
 		return index;
 	}
 
+	template<typename T>
+	index_t index_of() const
+	{
+		return get_index<T, Ts...>;
+	}
+
 private:
 	/*!
 	 * Different instantiations of variant should have access to
