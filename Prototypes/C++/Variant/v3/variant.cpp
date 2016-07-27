@@ -6,63 +6,6 @@
 #include <type_traits>
 #include <algorithm>
 
-struct Destroy {
-	using return_type = void;
-
-	template<typename T>
-	void operator()(T* data)
-	{
-		data->~T();
-	}
-};
-
-
-struct Copy {
-	using return_type = void;
-
-	template<typename T>
-	void operator()(T* to, T const& from)
-	{
-		new (to) T(from);
-	}
-};
-
-struct Move {
-	using return_type = void;
-
-	template<typename T>
-	void operator()(T* to, T&& from)
-	{
-		new (to) T(std::move(from));
-	}
-};
-
-template <bool Const, typename... Ts>
-struct type_switch {
-	using Storage = typename std::conditional<Const, void*, void const*>::type;
-
-	template<typename Functor, typename T, typename... Args> static
-	auto
-	apply_functor(Storage storage, Functor f, Args&&...args) -> typename Functor::return_type
-	{
-		using Type = typename std::conditional<Const, T*, T const*>::type;
-		return f(reinterpret_cast<Type>(storage), std::forward<Args>(args)...);
-	}
-
-	template<typename Functor, typename... Args>
-	auto
-	operator()(size_t index, Storage storage, Functor f, Args&&... args) -> typename Functor::return_type
-	{
-		using return_type = typename Functor::return_type;
-		using func_type   = return_type(Storage storage, Functor f, Args...);
-
-		static func_type* table[sizeof...(Ts)] = {
-			(apply_functor<Functor, Ts, Args...>)...
-		};
-
-		return table[index](storage, f, std::forward<Args>(args)...);
-	}
-};
 
 namespace _impl {
 template<template <typename> class Checker>
@@ -103,8 +46,21 @@ constexpr size_t find_index = _impl::find_index<Checker, Ts...>();
 #include <iostream>
 #include <experimental/optional>
 
+
+struct variant_shared {
+	struct Destroy {
+		using return_type = void;
+
+		template<typename T>
+			void operator()(T* data)
+			{
+				data->~T();
+			}
+	};
+};
+
 template <typename... Ts>
-struct variant {
+struct variant : variant_shared {
 	static constexpr size_t size  = std::max({sizeof(Ts)...});
 	static constexpr size_t align = std::max({alignof(Ts)...});
 	static constexpr size_t invalid = std::numeric_limits<size_t>::max();
@@ -118,33 +74,6 @@ struct variant {
 	{
 		set(value);
 	}
-
-	struct GetIndex {
-		using return_type = size_t;
-
-		template<typename T>
-		size_t operator()(T const*)
-		{
-			return get_index<T,Ts...>;
-		}
-	};
-
-	struct Copy {
-		using return_type = void;
-
-		Copy(variant& self)
-			: self(self)
-		{}
-
-		template<typename T>
-		void operator()(T const* value)
-		{
-			self.construct<T>(*value);
-		}
-
-	private:
-		variant& self;
-	};
 
 	template<typename... Os>
 	variant(variant<Os...> const& other)
@@ -205,6 +134,15 @@ struct variant {
 		index = invalid;
 	}
 
+private:
+	/*!
+	 * Different instantiations of variant should have access to
+	 * eachother's internals, as though they are of same class.
+	 */
+	template<typename... Os>
+	friend class variant;
+
+	// Helpers
 	template<typename T, typename... Args>
 	void construct(Args&&... args)
 	{
@@ -216,20 +154,93 @@ struct variant {
 		apply(Destroy{});
 	}
 
+	// Functors
+	using variant_shared::Destroy;
+
+	struct GetIndex {
+		using return_type = size_t;
+
+		template<typename T>
+		size_t operator()(T const*)
+		{
+			return get_index<T,Ts...>;
+		}
+	};
+
+	struct Copy {
+		using return_type = void;
+
+		Copy(variant& self)
+			: self(self)
+		{}
+
+		template<typename T>
+		void operator()(T const* value)
+		{
+			self.construct<T>(*value);
+		}
+
+	private:
+		variant& self;
+	};
+
+	struct Move {
+		using return_type = void;
+
+		Move(variant& self)
+			: self(self)
+		{}
+
+		template<typename T>
+		void operator()(T* value)
+		{
+			self.construct<T>(std::move(*value));
+		}
+
+	private:
+		variant& self;
+	};
+
+	// Functor dispatch
+	template<typename Functor, typename T, typename... Args> static auto
+	apply_functor(void* storage, Functor f, Args&&...args) -> typename Functor::return_type
+	{
+		return f(reinterpret_cast<T*>(storage), std::forward<Args>(args)...);
+	}
+
+	template<typename Functor, typename T, typename... Args> static auto
+	apply_functor(void const* storage, Functor f, Args&&...args) -> typename Functor::return_type
+	{
+		return f(reinterpret_cast<T const*>(storage), std::forward<Args>(args)...);
+	}
+
 	template<typename Functor, typename...Args>
 	auto apply(Functor f, Args&&... args) -> typename Functor::return_type
 	{
-		type_switch<false, Ts...> tswitch{};
-		return tswitch(index, (void*)&storage, f, std::forward<Args>(args)...);
+		using return_type = typename Functor::return_type;
+		using func_type   = return_type(void* storage, Functor f, Args...);
+
+		static func_type* table[sizeof...(Ts)] = {
+			(apply_functor<Functor, Ts, Args...>)...
+		};
+
+		return table[index]((void*)&storage, f, std::forward<Args>(args)...);
 	}
 
 	template<typename Functor, typename...Args>
 	auto apply(Functor f, Args&&... args) const -> typename Functor::return_type
 	{
-		type_switch<true, Ts...> tswitch{};
-		return tswitch(index, (void*)&storage, f, std::forward<Args>(args)...);
+		using return_type = typename Functor::return_type;
+		using func_type   = return_type(void const* storage, Functor f, Args...);
+
+		static func_type* table[sizeof...(Ts)] = {
+			(apply_functor<Functor, Ts, Args...>)...
+		};
+
+		return table[index]((void*)&storage, f, std::forward<Args>(args)...);
 	}
 
+	// Storage
 	Storage storage;
 	size_t  index = invalid;
 };
