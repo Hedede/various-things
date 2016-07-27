@@ -77,7 +77,7 @@ struct variant : variant_shared {
 	template<typename... Os>
 	variant(variant<Os...> const& other)
 	{
-		if (other.index == variant<Os...>::invalid)
+		if (other.empty())
 			return;
 
 		index = other.apply(GetIndex{});
@@ -88,7 +88,7 @@ struct variant : variant_shared {
 	template<typename... Os>
 	variant(variant<Os...>&& other)
 	{
-		if (other.index == variant<Os...>::invalid)
+		if (other.empty())
 			return;
 
 		index = other.apply(GetIndex{});
@@ -99,7 +99,7 @@ struct variant : variant_shared {
 	template<typename... Os>
 	variant& operator=(variant<Os...> const& other)
 	{
-		if (other.index == variant<Os...>::invalid)
+		if (other.empty())
 			return *this;
 
 		index = other.apply(GetIndex{});
@@ -110,7 +110,7 @@ struct variant : variant_shared {
 	template<typename... Os>
 	variant& operator=(variant<Os...>&& other)
 	{
-		if (other.index == variant<Os...>::invalid)
+		if (other.empty())
 			return *this;
 
 		other.apply(Move{*this});
@@ -134,7 +134,7 @@ struct variant : variant_shared {
 	template<typename T>
 	bool try_set(T const& v)
 	{
-		if (index == invalid) {
+		if (empty()) {
 			construct<T>(v);
 			index = index_t(get_index<T, Ts...>);
 			return true;
@@ -167,7 +167,7 @@ struct variant : variant_shared {
 
 	void reset()
 	{
-		if (index == invalid)
+		if (empty())
 			return;
 		destroy();
 		index = invalid;
@@ -179,6 +179,11 @@ struct variant : variant_shared {
 	 */
 	enum class index_t : size_t { };
 	static constexpr index_t invalid = index_t(std::numeric_limits<size_t>::max());
+
+	bool empty() const
+	{
+		return index == invalid;
+	}
 
 	template<typename T>
 	bool check_type() const
