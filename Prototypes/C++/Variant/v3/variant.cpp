@@ -52,9 +52,9 @@ struct variant_shared {
 		using return_type = void;
 
 		template<typename T>
-			void operator()(T* data)
+			void operator()(T& data)
 			{
-				data->~T();
+				data.~T();
 			}
 	};
 };
@@ -202,6 +202,18 @@ struct variant : variant_shared {
 		return get_index<T, Ts...>;
 	}
 
+	template<typename Functor, typename...Args>
+	auto apply(Functor f, Args&&... args) -> typename Functor::return_type
+	{
+		return apply_impl(f, std::forward<Args>(args)...);
+	}
+
+	template<typename Functor, typename...Args>
+	auto apply(Functor f, Args&&... args) const -> typename Functor::return_type
+	{
+		return apply_impl(f, std::forward<Args>(args)...);
+	}
+
 private:
 	/*!
 	 * Different instantiations of variant should have access to
@@ -235,7 +247,7 @@ private:
 		using return_type = index_t;
 
 		template<typename T>
-		index_t operator()(T const*)
+		index_t operator()(T const&)
 		{
 			return index_t(get_index<T,Ts...>);
 		}
@@ -249,9 +261,9 @@ private:
 		{}
 
 		template<typename T>
-		void operator()(T const* value)
+		void operator()(T const& value)
 		{
-			self.construct<T>(*value);
+			self.construct<T>(value);
 		}
 
 	private:
@@ -266,9 +278,9 @@ private:
 		{}
 
 		template<typename T>
-		void operator()(T* value)
+		void operator()(T& value)
 		{
-			self.construct<T>(std::move(*value));
+			self.construct<T>(std::move(value));
 		}
 
 	private:
@@ -279,17 +291,17 @@ private:
 	template<typename Functor, typename T, typename... Args> static auto
 	apply_functor(void* storage, Functor f, Args&&...args) -> typename Functor::return_type
 	{
-		return f(reinterpret_cast<T*>(storage), std::forward<Args>(args)...);
+		return f(*reinterpret_cast<T*>(storage), std::forward<Args>(args)...);
 	}
 
 	template<typename Functor, typename T, typename... Args> static auto
 	apply_functor(void const* storage, Functor f, Args&&...args) -> typename Functor::return_type
 	{
-		return f(reinterpret_cast<T const*>(storage), std::forward<Args>(args)...);
+		return f(*reinterpret_cast<T const*>(storage), std::forward<Args>(args)...);
 	}
 
 	template<typename Functor, typename...Args>
-	auto apply(Functor f, Args&&... args) -> typename Functor::return_type
+	auto apply_impl(Functor f, Args&&... args) -> typename Functor::return_type
 	{
 		using return_type = typename Functor::return_type;
 		using func_type   = return_type(void* storage, Functor f, Args...);
@@ -303,7 +315,7 @@ private:
 	}
 
 	template<typename Functor, typename...Args>
-	auto apply(Functor f, Args&&... args) const -> typename Functor::return_type
+	auto apply_impl(Functor f, Args&&... args) const -> typename Functor::return_type
 	{
 		using return_type = typename Functor::return_type;
 		using func_type   = return_type(void const* storage, Functor f, Args...);
