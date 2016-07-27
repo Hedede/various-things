@@ -71,7 +71,7 @@ struct variant : variant_shared {
 	template<typename T>
 	variant(T const& value)
 	{
-		set(value);
+		construct<T>(value);
 	}
 
 	template<typename... Os>
@@ -96,6 +96,24 @@ struct variant : variant_shared {
 		other.reset();
 	}
 
+	variant(variant const& other)
+	{
+		if (other.empty())
+			return;
+
+		other.apply(Copy{*this});
+
+	}
+
+	variant(variant&& other)
+	{
+		if (other.empty())
+			return;
+
+		other.apply(Move{*this});
+		other.reset();
+	}
+
 	template<typename... Os>
 	variant& operator=(variant<Os...> const& other)
 	{
@@ -109,6 +127,25 @@ struct variant : variant_shared {
 
 	template<typename... Os>
 	variant& operator=(variant<Os...>&& other)
+	{
+		if (other.empty())
+			return *this;
+
+		other.apply(Move{*this});
+		other.reset();
+		return *this;
+	}
+
+	variant& operator=(variant const& other)
+	{
+		if (other.empty())
+			return *this;
+
+		other.apply(Copy{*this});
+		return *this;
+	}
+
+	variant& operator=(variant&& other)
 	{
 		if (other.empty())
 			return *this;
