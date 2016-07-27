@@ -122,16 +122,20 @@ struct variant : variant_shared {
 	template<typename T>
 	void set(T const& v)
 	{
-		reset();
-		construct<T>(v);
-		index = index_t(get_index<T, Ts...>);
+		if (check_type<T>()) {
+			assign(v);
+		} else {
+			reset();
+			construct<T>(v);
+			index = index_t(get_index<T, Ts...>);
+		}
 	}
 
 	template<typename T>
 	bool try_set(T const& v)
 	{
 		if (check_type<T>()) {
-			set(v);
+			assign(v);
 			return true;
 		}
 		return false;
@@ -195,6 +199,12 @@ private:
 	void construct(Args&&... args)
 	{
 		new (&storage) T(std::forward<Args>(args)...);
+	}
+
+	template<typename T>
+	void assign(T const& other)
+	{
+		*reinterpret_cast<T*>(&storage) = other;
 	}
 
 	void destroy()
