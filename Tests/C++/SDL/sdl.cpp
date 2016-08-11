@@ -74,47 +74,79 @@ char const* EventString(unsigned type)
 	AW_ALL_SDL_EVENTS
 	}
 #undef X
+	return "OTHER";
+}
+
+#define AW_ALL_SDL_WEVENTS \
+X(SDL_WINDOWEVENT_SHOWN) \
+X(SDL_WINDOWEVENT_HIDDEN) \
+X(SDL_WINDOWEVENT_EXPOSED) \
+X(SDL_WINDOWEVENT_MOVED) \
+X(SDL_WINDOWEVENT_RESIZED) \
+X(SDL_WINDOWEVENT_SIZE_CHANGED) \
+X(SDL_WINDOWEVENT_MINIMIZED) \
+X(SDL_WINDOWEVENT_MAXIMIZED) \
+X(SDL_WINDOWEVENT_RESTORED) \
+X(SDL_WINDOWEVENT_ENTER) \
+X(SDL_WINDOWEVENT_LEAVE) \
+X(SDL_WINDOWEVENT_FOCUS_GAINED) \
+X(SDL_WINDOWEVENT_FOCUS_LOST) \
+X(SDL_WINDOWEVENT_CLOSE)
+
+char const* WEventString(unsigned type)
+{
+#define X(x) case x: return #x;
+	switch (type) {
+	AW_ALL_SDL_WEVENTS
+	}
+#undef X
+	return "OTHER";
 }
 
 void PollEvents()
 {
-	SDL_StartTextInput();
 	SDL_Event evt;
 	while( SDL_PollEvent( &evt ) ) {
-		std::cout << "Event " << EventString(evt.type) << "\n";
+		std::cout << "Event " << EventString(evt.type);
 		switch( evt.type ) {
 		case SDL_KEYDOWN:
 		case SDL_KEYUP:
+			std::cout << " key: " << SDL_GetKeyName(evt.key.keysym.sym);
 			break;
 		case SDL_TEXTINPUT:
 			input += evt.text.text;
-			std::cout << evt.text.text << "\n";
+			std::cout << " text: " << evt.text.text;
 			break;
 		case SDL_MOUSEBUTTONDOWN:
 		case SDL_MOUSEBUTTONUP:
 			break;
 		case SDL_MOUSEWHEEL:
-			std::cout << "Wheel is working here, why it doesn't in Havogrek?\n";
-			std::cout << "x: " << evt.wheel.x << " y: " << evt.wheel.y << "\n";
+			std::cout << " x: " << evt.wheel.x << " y: " << evt.wheel.y;
 			break;
 		case SDL_MOUSEMOTION:
 			break;
 		case SDL_WINDOWEVENT:
+			std::cout << " type: " << WEventString(evt.window.event);
+			std::cout << " x: " << evt.window.data1;
+			std::cout << " y: " << evt.window.data2;
 			break;
 		case SDL_QUIT:
 			quit = true;
 			break;
 		}
+		std::cout << '\n';
 	}
-	SDL_StopTextInput();
 }
 
 int main()
 {
 	InitSDL();
 
+	//SDL_StartTextInput();
 	while (!quit)
 		PollEvents();
+
+	//SDL_StopTextInput();
 
 	std::cout << "\n\n" << std::string(12u,'-') << "\n" << input << "\n";
 	return EXIT_SUCCESS;
