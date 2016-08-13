@@ -1,0 +1,7 @@
+#!/usr/bin/bash
+
+TMPFILE=$(mktemp -u /tmp/XXXXXXXX)
+tail -n +2 "$1" | cc -o $TMPFILE -x c -
+shift
+$TMPFILE $@
+rm -f $TMPFILE
