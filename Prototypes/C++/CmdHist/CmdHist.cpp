@@ -37,8 +37,9 @@ int main()
 		if (matches.empty())
 			continue;
 
-		if (matches.size() == 1 && matches[0] != str) {
-			std::cout << "hint: " << matches[0] << "\n";
+		if (matches.size() == 1) {
+			if (matches[0] != str)
+				std::cout << "hint: " << matches[0] << "\n";
 			continue;
 		}
 
