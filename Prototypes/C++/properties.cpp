@@ -12,8 +12,14 @@ public:
 		return set(std::forward<U>(u));
 	}
 
-	template<typename U>
-	operator U&()
+	using get_return_type = decltype(get())&;
+	operator get_return_type()
+	{
+		return get();
+	}
+
+	using get_const_return_type = decltype(get())const&;
+	operator get_const_return_type() const
 	{
 		return get();
 	}
