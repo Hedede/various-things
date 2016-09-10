@@ -28,7 +28,7 @@ public:
 #include <iostream>
 class myclass {
 	int _x, _y;
-#if __cplusplus < 201601L
+#if __cplusplus < 201701L
 	struct Setter {
 		int& x;
 		int& operator()(int y)
@@ -40,7 +40,7 @@ class myclass {
 
 	struct Getter {
 		int& x;
-		int& operator()()
+		int& operator()() const
 		{
 			std::cout << "get _x, x == " << x << '\n';
 			return x;
@@ -50,22 +50,31 @@ public:
 	property<Getter, Setter> x {
 		Getter{_x},
 		Setter{_x}
-		/* v C++17 replace with: */
-		/* [&] { return _x; }, */
-		/* [&] (int y) { return _x = y; } */
 	};
 #else
+// requires template class argument deduction
 public:
 	property x {
-		[&] { return _x; },
-		[&] (int y) { return _x = y; }
+		[&] {
+			std::cout << "get _x (" << _x << ")\n";
+			return _x;
+		},
+		[&] (int y) {
+			std::cout << "set _x = " << y << '\n';
+			return _x = y;
+		}
 	};
 #endif
+public:
+	myclass(int x, int y) : _x(x), _y(y) {}
 };
 
 int main()
 {
-	myclass c;
+	myclass c { 1, 2 };
 	c.x = 10;
 	int y = c.x;
+
+	myclass const cc { 1, 2 };
+	y = cc.x;
 }
