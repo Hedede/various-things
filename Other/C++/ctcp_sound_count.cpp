@@ -15,6 +15,7 @@ int main()
 {
 	ebat::flat_map<std::string, unsigned> sounds;
 	ebat::flat_map<std::string, unsigned> sound_lines;
+	ebat::flat_map<std::string, unsigned> sound_first;
 	ebat::flat_set<std::string> actual_sounds;
 	for (auto p : fs::directory_iterator("mIRCounds")) {
 		if (p.path().extension().string() != ".wav") continue;
@@ -40,6 +41,8 @@ int main()
 		auto name = fuck.substr(pos2+1, pos1-pos2-1);
 		++sounds[name];
 		sound_lines[name] = line;
+		if (sound_first.find(name) == end(sound_first))
+			sound_first[name] = line;
 	};
 
 	auto ctr = [] (char c) {
@@ -79,8 +82,10 @@ int main()
 		std::string _2 = kv.second;
 		size_t pad = _2nd - count_leading(_2) + 1;
 		_2.append(pad, ' ');
-		std::string _3 = std::to_string(sound_lines[kv.second]);
+		std::string _3 = std::to_string(sound_first[kv.second]);
 		_3.insert(0, _3rd - _3.size() + 1, ' ');
-		std::cout << _1 << ' ' << _2 << ' ' << _3 << '\n';
+		std::string _4 = std::to_string(sound_lines[kv.second]);
+		//_4.insert(0, _3rd - _4.size(), ' ');
+		std::cout << _1 << ' ' << _2 << ' ' << _3 << '-' << _4 << '\n';
 	}
 }
