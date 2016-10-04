@@ -1,0 +1,133 @@
+The HDF format was not based on any other document format, although it was inspired by ZenGin Archive format (Gothic and Gothic II serialization file format).
+
+For reference (you can clearly see the inspiration), ZenGin format looked like this:
+
+[% oCTriggerScript:zCTrigger:zCVob 24577 57]
+	pack=int:0
+	presetName=string:CYCLE_TRIGGER
+	bbox3DWS=rawFloat:-4603.71826 3108.79858 -1383.06384 -4603.71826 3108.79858 -1383.06384 
+	trafoOSToWSRot=raw:0000803f0000008000000000000000000000803f0000000000000080000000800000803f
+	trafoOSToWSPos=vec3:-4603.71826 3108.79858 -1383.06384
+	vobName=string:CYCLE_TRIGGER
+	visual=string:
+	showVisual=bool:1
+	visualCamAlign=enum:0
+	visualAniMode=enum:0
+	visualAniModeStrength=float:0
+	vobFarClipZScale=float:1
+	cdStatic=bool:0
+	cdDyn=bool:0
+	staticVob=bool:0
+	dynShadow=enum:0
+	zbias=int:1
+	isAmbient=bool:0
+	[visual % 0 0]
+	[]
+	[ai % 0 0]
+	[]
+	triggerTarget=string:
+	flags=raw:07
+	filterFlags=raw:3f
+	respondToVobName=string:
+	numCanBeActivated=int:-1
+	retriggerWaitSec=float:0
+	damageThreshold=float:0
+	fireDelaySec=float:0.100000001
+	scriptFunc=string:B_CYCLE_FUNCTION
+[]
+
+
+
+I decided to call the format "HNDF" ("hrengin Native Data Format"). First draft looked very similar to ZenGin format:
+
+document [
+	typeid : HNDF
+	version_major = 1
+	version_minor = 0
+	author = "USERNAME"
+]:[
+	chunk1 [ typeid : TEXT ]:
+	[
+		responces = string: "responce1" "responce2" "responce3" "responce4"
+	]
+	
+	chunk2 [ typeid : DATA ]:
+	[
+		var1 = float: 0.1
+		length = int: 21 25 65
+		variable3 = raw:0fff000000ffa00000ffcc00000
+	]
+]
+
+
+However, I did not like it, and it was abandoned before it was implemented.
+For the second iteration, the format was greatly simplified:
+
+
+!hndf_version "1.1"
+[document
+	[text
+		responces = string: "responce1" "responce2" "responce3" "responce4"]
+	[data
+		dim = float: 0.1 0.8 0.1
+		id = int: 21; type = int:1054
+	]
+]
+
+The parser was implemented, altough it did not support vector vlalues ("float: 0.1 0.8 0.1" in this example).
+
+For the next iteration, the letter 'N' was dropped, so format was called "HDF 1.1.1".
+Semicolon value separators were removed, and additional data types for float vectors were introduced. Vectors of other types were removed, because they were never implemented.
+
+
+!hdf_version "1.1.1"
+[xyzzy
+	[text
+		responce = string: "responce1"
+		responce = string: "responce2"
+		responce = string: "responce3"
+		responce = string: "responce4"]
+	[data
+		dim = vec3: 0.1 0.8 0.1
+		id = int: 21	 type = int:1054
+	]
+]
+
+Next few iterations were fairly minor:
+
+HDF 1.1.2 reintroduced ';' separators, but they didn't serve enay practival purpose and were skipped.
+HDF 1.1.3 added possibility to assign values to nodes: [node-value = string:"val"]
+Additionally, several shorthands were inroduced:
+	v = f:1.3
+	v = i:1
+	v = b:true
+	v = s:"xyz"
+	v = v3:1 0 -1
+	v = enum:xyz
+
+The next major iteration was HDF 1.2, which modified vector syntax:
+[
+	v = vec2:{1,2}
+	v = vec3:{1,3,1}
+	v = vec4:{1,0,1}
+]
+
+Next minor revision was HDF 1.2.1, which removed ';' separators.
+
+
+Last two major revisions are what is actually used now. In 1.3, vecX format was replaced by generic vectors:
+[document
+	[text
+		responces = string:{"responce1","responce2","responce3","responce4"}]
+	[data
+		dim = float:{0.1, 0.8, 0.1}
+		id = int: 21
+		type = int:1054
+	]
+]
+
+1.4 is the latest revision, top-level values and boolean vectors were added:
+doc-name = "DOCUMENT"
+[node
+	values = bool:{1,1,0,1,0,1,1,0,1,1}
+]
