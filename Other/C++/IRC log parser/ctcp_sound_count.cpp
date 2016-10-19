@@ -1,23 +1,41 @@
-//#include <map>
-//#include <set>
 #include <cctype>
 #include <iostream>
 //#include <iomanip>
 #include <string>
 #include <algorithm>
-#include <experimental/filesystem>
+
+#if 0
 #include <boost/container/flat_map.hpp>
 #include <boost/container/flat_set.hpp>
-namespace fs = std::experimental::filesystem;
-namespace ebat = boost::container;
+namespace ebat {
+using boost::container::flat_map;
+using boost::container::flat_set;
+using boost::container::flat_multimap;
+}
+#else
+#include <map>
+#include <set>
+namespace ebat = std;
+#endif
 
-int main()
+#include <experimental/filesystem>
+#include <unistd.h>
+#include <sys/types.h>
+#include <pwd.h>
+
+namespace fs = std::experimental::filesystem;
+struct passwd *pw = getpwuid(getuid());
+fs::path homedir{pw->pw_dir};
+fs::path mircounds{"Dropbox/marketingovaja shara/чулан/mIRCounds"};
+
+void main2()
 {
-	ebat::flat_map<std::string, unsigned> sounds;
-	ebat::flat_map<std::string, unsigned> sound_lines;
-	ebat::flat_map<std::string, unsigned> sound_first;
-	ebat::flat_set<std::string> actual_sounds;
-	for (auto p : fs::directory_iterator("mIRCounds")) {
+	ebat::map<std::string, unsigned> sounds;
+	ebat::map<std::string, unsigned> sound_lines;
+	ebat::map<std::string, unsigned> sound_first;
+	ebat::set<std::string> actual_sounds;
+
+	for (auto p : fs::directory_iterator( homedir/mircounds )) {
 		if (p.path().extension().string() != ".wav") continue;
 		std::string name = p.path().stem().string();
 		actual_sounds.insert(name);
@@ -70,7 +88,7 @@ int main()
 	size_t _2nd = count_leading(*longest_2nd);
 	size_t _3rd = std::to_string(longest_3rd->second).size();
 
-	ebat::flat_multimap<unsigned, std::string> huy;
+	ebat::multimap<unsigned, std::string> huy;
 	for (auto& kv : sounds) {
 		if (actual_sounds.find(kv.first) == end(actual_sounds)) continue;
 		huy.insert(std::make_pair(kv.second, kv.first));
@@ -88,4 +106,11 @@ int main()
 		//_4.insert(0, _3rd - _4.size(), ' ');
 		std::cout << _1 << ' ' << _2 << ' ' << _3 << '-' << _4 << '\n';
 	}
+}
+
+int main() try {
+	main2();
+} catch(std::exception& ex) {
+	std::cerr << ex.what() << '\n';
+	return EXIT_FAILURE;
 }
