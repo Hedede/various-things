@@ -1,0 +1,1 @@
+exit $(($RANDOM % 2))
