@@ -1,11 +1,15 @@
 module SquareDigit where
 
-digits :: (Integral i) => i -> [i]
+digits :: Int -> [Int]
 digits 0 = []
-digits x = reverse $ x `mod` 10 : (reverse $ digits (x `div` 10))
+digits x = digits (x `div` 10) ++ [x `mod` 10]
 
-squareDigit :: (Show i, Read i, Integral i) => i -> i
-squareDigit x = concat $ map (^2) (digits x)
-        where
-        concat = read . concatMap show
-        --concat = read . foldr ((++) . show) []
+squareDigit :: Int -> Int
+squareDigit x
+  | x <  0 = negate (squareDigit(negate x))
+  | x == 0 = x
+  | x >  0 = let
+               square = map (^2) . digits
+               concat = read . concatMap show
+             in
+               (concat . square) x
