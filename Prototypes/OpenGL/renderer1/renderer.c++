@@ -17,6 +17,7 @@ namespace aw::gl3 {
 using namespace sv_literals;
 
 optional<program> test_program;
+GLuint screen_location;
 
 void initialize_program()
 {
@@ -32,6 +33,8 @@ void initialize_program()
 
 	test_program = program();
 	test_program->link( shaderList );
+
+	screen_location = gl::get_uniform_location( handle(*test_program), "screen");
 }
 
 GLuint pbo;
@@ -110,6 +113,7 @@ void render()
 {
 	clear();
 	gl::use_program( handle(*test_program) );
+	gl::uniform2f(screen_location, hx, hy);
 
 	calc_positions();
 	gl::enable_vertex_attrib_array( 0 );
