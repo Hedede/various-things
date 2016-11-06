@@ -7,6 +7,7 @@
 #include <iostream>
 #include <algorithm>
 #include <vector>
+#include <chrono>
 
 #include <aw/graphics/gl/shader.h>
 #include "program.h"
@@ -18,6 +19,8 @@ using namespace sv_literals;
 
 optional<program> test_program;
 GLuint screen_location;
+GLuint time_location;
+GLuint period_location;
 
 void initialize_program()
 {
@@ -35,6 +38,8 @@ void initialize_program()
 	test_program->link( shaderList );
 
 	screen_location = gl::get_uniform_location( handle(*test_program), "screen");
+	time_location = gl::get_uniform_location( handle(*test_program), "time");
+	period_location = gl::get_uniform_location( handle(*test_program), "period");
 }
 
 GLuint pbo;
@@ -111,9 +116,17 @@ void calc_positions()
 
 void render()
 {
+	using namespace std::chrono;
+	static duration<double> period{1};
+	static auto begin = steady_clock::now();
+	auto now = steady_clock::now();
+	duration<double> elapsed = now - begin;
+
 	clear();
 	gl::use_program( handle(*test_program) );
 	gl::uniform2f(screen_location, hx, hy);
+	gl::uniform1f(period_location, period.count());
+	gl::uniform1f(time_location, elapsed.count());
 
 	calc_positions();
 	gl::enable_vertex_attrib_array( 0 );
@@ -129,7 +142,6 @@ void render()
 
 } // namespace aw::gl3
 
-#include <chrono>
 #include <SFML/Window.hpp>
 #include <SFML/Graphics.hpp>
 #include <aw/utility/to_string.h>
