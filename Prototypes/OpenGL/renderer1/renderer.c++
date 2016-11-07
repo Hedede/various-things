@@ -10,23 +10,30 @@
 #include <chrono>
 
 #include <aw/graphics/gl/shader.h>
-#include "program.h"
+#include <aw/graphics/gl/program.h>
 
 #include <aw/graphics/gl/shader_file.h>
+
+#include "renderer.h"
 
 namespace aw::gl3 {
 using namespace sv_literals;
 
+struct program_handle {
+	GLuint value;
+	operator GLuint() { return value; }
+};
 optional<program> test_program;
-GLuint screen_location;
-GLuint time_location;
-GLuint period_location;
+uniform_location screen_location;
+uniform_location time_location;
+uniform_location period_location;
+uniform_location campos_location;
 
 void initialize_program()
 {
 	std::vector<shader> shaderList;
 
-	auto vsh = load_shader( gl::shader_type::vertex,   "vert.glsl" );
+	auto vsh = load_shader( gl::shader_type::vertex,   "vert1.glsl" );
 	auto fsh = load_shader( gl::shader_type::fragment, "frag.glsl" );
 
 	if (vsh && fsh) {
@@ -37,35 +44,30 @@ void initialize_program()
 	test_program = program();
 	test_program->link( shaderList );
 
-	screen_location = gl::get_uniform_location( handle(*test_program), "screen");
-	time_location = gl::get_uniform_location( handle(*test_program), "time");
-	period_location = gl::get_uniform_location( handle(*test_program), "period");
+	auto& program = *test_program;
+
+	screen_location = program.uniform("screen");
+	time_location   = program.uniform("time");
+	period_location = program.uniform("period");
+	campos_location = program.uniform("camera");
+
+	gl::use_program( handle(program) );
+	program["frustum_scale"] = 1.0f;
+	program["zNear"] = 1.0f;
+	program["zFar"]  = 3.0f;
+	gl::use_program( 0 );
 }
 
 GLuint pbo;
 GLuint vao;
-/*const*/ float vertex_positions[] = {
-     0.75f,  0.75f, 0.0f, 1.0f,
-     0.75f, -0.75f, 0.0f, 1.0f,
-    -0.75f, -0.75f, 0.0f, 1.0f,
-    -0.00f,  0.35f, 0.0f, 1.0f,
-    -0.00f, -0.35f, 0.0f, 1.0f,
-    -0.35f,  0.35f, 0.0f, 1.0f,
 
-     1.0f,   0.0f,  0.0f, 1.0f,
-     0.0f,   1.0f,  0.0f, 1.0f,
-     0.0f,   0.0f,  1.0f, 1.0f,
-     1.0f,   1.0f,  1.0f, 1.0f,
-     1.0f,   1.0f,  1.0f, 1.0f,
-     1.0f,   1.0f,  1.0f, 1.0f,
-};
 
 void initialize_scene()
 {
 	gl::gen_buffers( 1, &pbo );
 
 	gl::bind_buffer( GL_ARRAY_BUFFER, pbo );
-	gl::buffer_data( GL_ARRAY_BUFFER, sizeof(vertex_positions), vertex_positions, GL_STREAM_DRAW );
+	gl::buffer_data( GL_ARRAY_BUFFER, sizeof(cube_verts), cube_verts, GL_STATIC_DRAW );
 	gl::bind_buffer( GL_ARRAY_BUFFER, 0 );
 	
 	gl::gen_vertex_arrays(1, &vao);
@@ -95,6 +97,10 @@ void reshape(int x, int y)
 	hy = y2;
 
 	gl::viewport(xd, yd, x2, y2);
+	auto& program = *test_program;
+	gl::use_program( handle(program) );
+	program[screen_location] = vec2{ hx, hy };
+	gl::use_program( 0 );
 }
 
 void clear()
@@ -105,13 +111,11 @@ void clear()
 
 void calc_positions()
 {
-	static std::vector<float> vec;
-	vec.assign(std::begin(vertex_positions), std::end(vertex_positions));
-	vec[20] = (2.0*mx) / hx - 1;
-	vec[21] = (2.0*my) / hy - 1;
+	//static std::vector<float> vec;
+	//vec.assign(std::begin(cube), std::end(cube));
 
-	gl::bind_buffer( GL_ARRAY_BUFFER, pbo );
-	gl::buffer_sub_data( GL_ARRAY_BUFFER, 0, sizeof(vertex_positions), vec.data() );
+	// gl::bind_buffer( GL_ARRAY_BUFFER, pbo );
+	// gl::buffer_sub_data( GL_ARRAY_BUFFER, 0, sizeof(vertex_positions), vec.data() );
 }
 
 void render()
@@ -123,18 +127,26 @@ void render()
 	duration<double> elapsed = now - begin;
 
 	clear();
-	gl::use_program( handle(*test_program) );
-	gl::uniform2f(screen_location, hx, hy);
-	gl::uniform1f(period_location, period.count());
-	gl::uniform1f(time_location, elapsed.count());
 
-	calc_positions();
+	auto& program = *test_program;
+	gl::use_program( handle(program) );
+	program[period_location] = period.count();
+	program[time_location]   = elapsed.count();
+	float cam[2] = {
+		(2.0f*mx) / hx - 1,
+		(2.0f*my) / hy - 1
+	};
+
+	program[campos_location] = vec2{ cam };
+
+	//calc_positions();
+	gl::bind_buffer( GL_ARRAY_BUFFER, pbo );
 	gl::enable_vertex_attrib_array( 0 );
 	gl::enable_vertex_attrib_array( 1 );
 	gl::vertex_attrib_pointer( 0, 4, GL_FLOAT, false, 0, 0 );
-	gl::vertex_attrib_pointer( 1, 4, GL_FLOAT, false, 0, 6*16 );
+	gl::vertex_attrib_pointer( 1, 4, GL_FLOAT, false, 0, sizeof(cube_verts)/2 );
 
-	gl::draw_arrays( GL_TRIANGLES, 0, 6 );
+	gl::draw_arrays( GL_TRIANGLES, 0, 36 );
 
 	gl::disable_vertex_attrib_array( 0 );
 	gl::use_program( 0 );
@@ -164,6 +176,10 @@ int main()
 
 	initialize_program();
 	initialize_scene();
+
+	gl::enable(GL_CULL_FACE);
+	gl::cull_face(GL_BACK);
+	gl::front_face(GL_CW);
 
 	size_t ctr = 0;
 	using namespace std::chrono;
