@@ -29,11 +29,12 @@ uniform_location time_location;
 uniform_location period_location;
 uniform_location campos_location;
 
+mat4 projmat;
 void initialize_program()
 {
 	std::vector<shader> shaderList;
 
-	auto vsh = load_shader( gl::shader_type::vertex,   "vert2.glsl" );
+	auto vsh = load_shader( gl::shader_type::vertex,   "vert3.glsl" );
 	auto fsh = load_shader( gl::shader_type::fragment, "frag.glsl" );
 
 	if (vsh && fsh) {
@@ -60,7 +61,7 @@ void initialize_program()
 	float s = frustum_scale;
 	float z = (zFar + zNear) / (zNear - zFar);
 	float w = 2 * zFar * zNear / (zNear - zFar);
-	mat4 projmat = {
+	projmat = {
 		s, 0, 0, 0,
 		0, s, 0, 0,
 		0, 0, z, w,
@@ -75,48 +76,73 @@ void initialize_program()
 	gl::use_program( 0 );
 }
 
-GLuint pbo;
-GLuint vao;
+GLuint vao1;
+GLuint vao2;
+
+GLuint vbo;
+GLuint ibo;
 
 
 void initialize_scene()
 {
-	gl::gen_buffers( 1, &pbo );
-
-	gl::bind_buffer( GL_ARRAY_BUFFER, pbo );
-	gl::buffer_data( GL_ARRAY_BUFFER, sizeof(cube_verts), cube_verts, GL_STATIC_DRAW );
+	gl::gen_buffers( 1, &vbo );
+	gl::bind_buffer( GL_ARRAY_BUFFER, vbo );
+	gl::buffer_data( GL_ARRAY_BUFFER, sizeof(vertexData), vertexData, GL_STATIC_DRAW );
 	gl::bind_buffer( GL_ARRAY_BUFFER, 0 );
-	
-	gl::gen_vertex_arrays(1, &vao);
-	gl::bind_vertex_array(vao);
+
+	gl::gen_buffers( 1, &ibo );
+	gl::bind_buffer( GL_ELEMENT_ARRAY_BUFFER, ibo );
+	gl::buffer_data( GL_ELEMENT_ARRAY_BUFFER, sizeof(indexData), indexData, GL_STATIC_DRAW );
+	gl::bind_buffer( GL_ELEMENT_ARRAY_BUFFER, 0 );
+
+
+	gl::gen_vertex_arrays(1, &vao1);
+	gl::bind_vertex_array(vao1);
+
+	size_t colorDataOffset = sizeof(float) * 3 * numberOfVertices;
+
+	gl::bind_buffer( GL_ARRAY_BUFFER, vbo );
+	gl::enable_vertex_attrib_array( 0 );
+	gl::enable_vertex_attrib_array( 1 );
+	gl::vertex_attrib_pointer( 0, 3, GL_FLOAT, GL_FALSE, 0, 0 );
+	gl::vertex_attrib_pointer( 1, 4, GL_FLOAT, GL_FALSE, 0, colorDataOffset );
+	gl::bind_buffer( GL_ELEMENT_ARRAY_BUFFER, ibo );
+
+	gl::bind_vertex_array( 0 );
+
+	gl::gen_vertex_arrays(1, &vao2);
+	gl::bind_vertex_array(vao2);
+
+	size_t posDataOffset = sizeof(float) * 3 * (numberOfVertices/2);
+	colorDataOffset += sizeof(float) * 4 * (numberOfVertices/2);
+
+	gl::enable_vertex_attrib_array( 0 );
+	gl::enable_vertex_attrib_array( 1 );
+	gl::vertex_attrib_pointer( 0, 3, GL_FLOAT, GL_FALSE, 0, posDataOffset );
+	gl::vertex_attrib_pointer( 1, 4, GL_FLOAT, GL_FALSE, 0, colorDataOffset );
+	gl::bind_buffer( GL_ELEMENT_ARRAY_BUFFER, ibo );
+
+	gl::bind_vertex_array( 0 );
 }
 
 int mx, my;
-int fx, fy, hx, hy;
+int hx, hy;
+
+
 void reshape(int x, int y)
 {
-	float w = float(x)/y;
-	float v = 4.0/3.0;
+	gl::viewport(0, 0, x, y);
 
-	int x2 = x;
-	int y2 = y;
-	if (w > v)
-		x2 *= v / w;
-	if (v > w)
-		y2 *= w / v;
+	hx = x;
+	hy = y;
 
-	int xd = (x - x2)/2;
-	int yd = (y - y2)/2;
-
-	fx = xd;
-	fy = yd;
-	hx = x2;
-	hy = y2;
-
-	gl::viewport(xd, yd, x2, y2);
 	auto& program = *test_program;
+
 	gl::use_program( handle(program) );
-	program[screen_location] = vec2{ float(hx), float(hy) };
+	program[screen_location] = vec2{ float(x), float(y) };
+	projmat.get(0,0) = 1.0f / (float(x) / y);
+	projmat.get(1,1) = 1.0f;
+	program["perspective"] = projmat;
 	gl::use_program( 0 );
 }
 
@@ -149,6 +175,8 @@ void render()
 	gl::use_program( handle(program) );
 	program[period_location] = period.count();
 	program[time_location]   = elapsed.count();
+
+
 	vec2 cam {
 		(2.0f*mx) / hx - 1,
 		(2.0f*my) / hy - 1
@@ -156,16 +184,17 @@ void render()
 
 	program[campos_location] = cam;
 
-	//calc_positions();
-	gl::bind_buffer( GL_ARRAY_BUFFER, pbo );
-	gl::enable_vertex_attrib_array( 0 );
-	gl::enable_vertex_attrib_array( 1 );
-	gl::vertex_attrib_pointer( 0, 4, GL_FLOAT, false, 0, 0 );
-	gl::vertex_attrib_pointer( 1, 4, GL_FLOAT, false, 0, sizeof(cube_verts)/2 );
+#define ARRAY_COUNT( array ) (sizeof( array ) / (sizeof( array[0] ) * (sizeof( array ) != sizeof(void*) || sizeof( array[0] ) <= sizeof(void*))))
 
-	gl::draw_arrays( GL_TRIANGLES, 0, 36 );
 
-	gl::disable_vertex_attrib_array( 0 );
+	gl::bind_vertex_array(vao1);
+	program["offset"] = vec3{ 0, 0, 0 };
+	gl::draw_elements(GL_TRIANGLES, ARRAY_COUNT(indexData), GL_UNSIGNED_SHORT, 0);
+
+	gl::bind_vertex_array(vao2);
+	program["offset"] = vec3{ 0, 0, -1 };
+	gl::draw_elements(GL_TRIANGLES, ARRAY_COUNT(indexData), GL_UNSIGNED_SHORT, 0);
+
 	gl::use_program( 0 );
 }
 
@@ -193,6 +222,7 @@ int main()
 
 	initialize_program();
 	initialize_scene();
+	reshape(800, 600);
 
 	gl::enable(GL_CULL_FACE);
 	gl::cull_face(GL_BACK);
@@ -218,12 +248,6 @@ int main()
 				my = sf::Mouse::getPosition(window).y;
 
 				my = window.getSize().y - my;
-
-				mx = math::clamp( mx, fx, fx+hx );
-				my = math::clamp( my, fy, fy+hy );
-
-				mx -= fx;
-				my -= fy;
 			}
 		}
 
