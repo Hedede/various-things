@@ -33,7 +33,7 @@ void initialize_program()
 {
 	std::vector<shader> shaderList;
 
-	auto vsh = load_shader( gl::shader_type::vertex,   "vert1.glsl" );
+	auto vsh = load_shader( gl::shader_type::vertex,   "vert2.glsl" );
 	auto fsh = load_shader( gl::shader_type::fragment, "frag.glsl" );
 
 	if (vsh && fsh) {
@@ -52,6 +52,23 @@ void initialize_program()
 	campos_location = program.uniform("camera");
 
 	gl::use_program( handle(program) );
+
+	float frustum_scale = 1.0f;
+	float zFar = 1.0f;
+	float zNear = 3.0f;
+
+	float s = frustum_scale;
+	float z = (zFar + zNear) / (zNear - zFar);
+	float w = 2 * zFar * zNear / (zNear - zFar);
+	mat4 projmat = {
+		s, 0, 0, 0,
+		0, s, 0, 0,
+		0, 0, z, w,
+		0, 0, -1, 0,
+	};
+
+	program["perspective"] = projmat;
+
 	program["frustum_scale"] = 1.0f;
 	program["zNear"] = 1.0f;
 	program["zFar"]  = 3.0f;
@@ -99,7 +116,7 @@ void reshape(int x, int y)
 	gl::viewport(xd, yd, x2, y2);
 	auto& program = *test_program;
 	gl::use_program( handle(program) );
-	program[screen_location] = vec2{ hx, hy };
+	program[screen_location] = vec2{ float(hx), float(hy) };
 	gl::use_program( 0 );
 }
 
@@ -132,12 +149,12 @@ void render()
 	gl::use_program( handle(program) );
 	program[period_location] = period.count();
 	program[time_location]   = elapsed.count();
-	float cam[2] = {
+	vec2 cam {
 		(2.0f*mx) / hx - 1,
 		(2.0f*my) / hy - 1
 	};
 
-	program[campos_location] = vec2{ cam };
+	program[campos_location] = cam;
 
 	//calc_positions();
 	gl::bind_buffer( GL_ARRAY_BUFFER, pbo );
