@@ -128,4 +128,6 @@ const GLshort indexData[] =
 	14, 16, 15,
 	17, 16, 14,
 };
+
+#define ARRAY_COUNT( array ) (sizeof( array ) / (sizeof( array[0] ) * (sizeof( array ) != sizeof(void*) || sizeof( array[0] ) <= sizeof(void*))))
 } // namespace aw::gl3

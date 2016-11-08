@@ -2,7 +2,9 @@
 #include <aw/types/string_view.h>
 #include <aw/utility/string/split.h>
 #include <aw/math/matrix3.h>
+#include <aw/math/matrix4.h>
 #include <aw/math/math.h>
+#include <aw/math/angle.h>
 
 #include <iostream>
 #include <algorithm>
@@ -29,12 +31,24 @@ uniform_location time_location;
 uniform_location period_location;
 uniform_location campos_location;
 
+float cot(float x)
+{
+	return cos(x) / sin(x);
+}
+
+float calc_fov(math::radians<float> fov)
+{
+	return cot(fov.count() / 2.0f);
+}
+
+const float frustum_scale = calc_fov( math::degrees<float>{90} );
+
 mat4 projmat;
 void initialize_program()
 {
 	std::vector<shader> shaderList;
 
-	auto vsh = load_shader( gl::shader_type::vertex,   "vert3.glsl" );
+	auto vsh = load_shader( gl::shader_type::vertex,   "vert4.glsl" );
 	auto fsh = load_shader( gl::shader_type::fragment, "frag.glsl" );
 
 	if (vsh && fsh) {
@@ -54,9 +68,8 @@ void initialize_program()
 
 	gl::use_program( handle(program) );
 
-	float frustum_scale = 1.0f;
-	float zFar = 1.0f;
-	float zNear = 3.0f;
+	float zFar = 3.0f;
+	float zNear = 1.0f;
 
 	float s = frustum_scale;
 	float z = (zFar + zNear) / (zNear - zFar);
@@ -113,6 +126,11 @@ void initialize_scene()
 	gl::enable(GL_CULL_FACE);
 	gl::cull_face(GL_BACK);
 	gl::front_face(GL_CW);
+
+	gl::enable(GL_DEPTH_TEST);
+	gl::depth_mask(GL_TRUE);
+	gl::depth_func(GL_LEQUAL);
+	gl::depth_range(0.0f, 1.0f);
 }
 
 int mx, my;
@@ -130,8 +148,8 @@ void reshape(int x, int y)
 
 	gl::use_program( handle(program) );
 	program[screen_location] = vec2{ float(x), float(y) };
-	projmat.get(0,0) = 1.0f / (float(x) / y);
-	projmat.get(1,1) = 1.0f;
+	projmat.get(0,0) = frustum_scale / (float(x) / y);
+	projmat.get(1,1) = frustum_scale;
 	program["perspective"] = projmat;
 	gl::use_program( 0 );
 }
@@ -139,7 +157,8 @@ void reshape(int x, int y)
 void clear()
 {
 	gl::clear_color( 0.0f, 0.0f, 0.0f, 0.0f );
-	gl::clear( GL_COLOR_BUFFER_BIT );
+	gl::clear_depth( 1.0f );
+	gl::clear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 }
 
 void calc_positions()
@@ -174,16 +193,22 @@ void render()
 
 	program[campos_location] = cam;
 
-#define ARRAY_COUNT( array ) (sizeof( array ) / (sizeof( array[0] ) * (sizeof( array ) != sizeof(void*) || sizeof( array[0] ) <= sizeof(void*))))
 
+	auto offset = math::make_identity<float,4>();
 
 	gl::bind_vertex_array(vao1);
-	program["offset"] = vec3{ 0, 0, 0 };
+	program["transform"] = offset;
 	gl::draw_elements(GL_TRIANGLES, ARRAY_COUNT(indexData), GL_UNSIGNED_SHORT, 0);
 
-	program["offset"] = vec3{ 0, 0, -1 };
+	offset.get(2,3) = -0.1;
+	program["transform"] = offset;
 	gl::draw_elements_base_vertex(GL_TRIANGLES, ARRAY_COUNT(indexData),
 		GL_UNSIGNED_SHORT, 0, numberOfVertices / 2);
+
+	offset.get(2,3) = -0.1;
+	offset = math::roll_matrix( 45.0f );
+	program["transform"] = offset;
+	gl::draw_elements(GL_TRIANGLES, ARRAY_COUNT(indexData), GL_UNSIGNED_SHORT, 0);
 
 	gl::use_program( 0 );
 }
