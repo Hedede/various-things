@@ -110,19 +110,9 @@ void initialize_scene()
 
 	gl::bind_vertex_array( 0 );
 
-	gl::gen_vertex_arrays(1, &vao2);
-	gl::bind_vertex_array(vao2);
-
-	size_t posDataOffset = sizeof(float) * 3 * (numberOfVertices/2);
-	colorDataOffset += sizeof(float) * 4 * (numberOfVertices/2);
-
-	gl::enable_vertex_attrib_array( 0 );
-	gl::enable_vertex_attrib_array( 1 );
-	gl::vertex_attrib_pointer( 0, 3, GL_FLOAT, GL_FALSE, 0, posDataOffset );
-	gl::vertex_attrib_pointer( 1, 4, GL_FLOAT, GL_FALSE, 0, colorDataOffset );
-	gl::bind_buffer( GL_ELEMENT_ARRAY_BUFFER, ibo );
-
-	gl::bind_vertex_array( 0 );
+	gl::enable(GL_CULL_FACE);
+	gl::cull_face(GL_BACK);
+	gl::front_face(GL_CW);
 }
 
 int mx, my;
@@ -191,9 +181,9 @@ void render()
 	program["offset"] = vec3{ 0, 0, 0 };
 	gl::draw_elements(GL_TRIANGLES, ARRAY_COUNT(indexData), GL_UNSIGNED_SHORT, 0);
 
-	gl::bind_vertex_array(vao2);
 	program["offset"] = vec3{ 0, 0, -1 };
-	gl::draw_elements(GL_TRIANGLES, ARRAY_COUNT(indexData), GL_UNSIGNED_SHORT, 0);
+	gl::draw_elements_base_vertex(GL_TRIANGLES, ARRAY_COUNT(indexData),
+		GL_UNSIGNED_SHORT, 0, numberOfVertices / 2);
 
 	gl::use_program( 0 );
 }
@@ -223,10 +213,6 @@ int main()
 	initialize_program();
 	initialize_scene();
 	reshape(800, 600);
-
-	gl::enable(GL_CULL_FACE);
-	gl::cull_face(GL_BACK);
-	gl::front_face(GL_CW);
 
 	size_t ctr = 0;
 	using namespace std::chrono;
