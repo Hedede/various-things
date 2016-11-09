@@ -15,6 +15,7 @@
 #include <aw/graphics/gl/program.h>
 
 #include <aw/graphics/gl/shader_file.h>
+#include <aw/graphics/gl/camera.h>
 
 #include "renderer.h"
 
@@ -31,19 +32,8 @@ uniform_location time_location;
 uniform_location period_location;
 uniform_location campos_location;
 
-float cot(float x)
-{
-	return cos(x) / sin(x);
-}
+camera cam;
 
-float calc_fov(math::radians<float> fov)
-{
-	return cot(fov.count() / 2.0f);
-}
-
-const float frustum_scale = calc_fov( math::degrees<float>{90} );
-
-mat4 projmat;
 void initialize_program()
 {
 	std::vector<shader> shaderList;
@@ -68,24 +58,14 @@ void initialize_program()
 
 	gl::use_program( handle(program) );
 
-	float zFar = 3.0f;
-	float zNear = 1.0f;
+	cam.set_near_z(1.0f);
+	cam.set_far_z(3.0f);
 
-	float s = frustum_scale;
-	float z = (zFar + zNear) / (zNear - zFar);
-	float w = 2 * zFar * zNear / (zNear - zFar);
-	projmat = {
-		s, 0, 0, 0,
-		0, s, 0, 0,
-		0, 0, z, w,
-		0, 0, -1, 0,
-	};
+	cam.set_aspect_ratio(1.0f);
+	cam.set_fov( math::degrees<float>{90} );
 
-	program["perspective"] = projmat;
+	program["perspective"] = cam.projection_matrix();
 
-	program["frustum_scale"] = 1.0f;
-	program["zNear"] = 1.0f;
-	program["zFar"]  = 3.0f;
 	gl::use_program( 0 );
 }
 
@@ -148,9 +128,8 @@ void reshape(int x, int y)
 
 	gl::use_program( handle(program) );
 	program[screen_location] = vec2{ float(x), float(y) };
-	projmat.get(0,0) = frustum_scale / (float(x) / y);
-	projmat.get(1,1) = frustum_scale;
-	program["perspective"] = projmat;
+	cam.set_aspect_ratio( float(x) / float(y) );
+	program["perspective"] = cam.projection_matrix();
 	gl::use_program( 0 );
 }
 
