@@ -79,21 +79,32 @@ GLuint ibo;
 
 
 struct {
-	std::vector< float > verts;
-	std::vector< u16 > indices;
-
 	GLuint vao;
 	GLuint vbo;
 	GLuint ibo;
+	size_t num_elements;
 
 	void load()
 	{
 		io::input_file_stream file{ "butruck.obj" };
 		auto data = obj::mesh::parse( file );
+
+		std::vector< float > verts;
+		std::vector< u16 > indices;
+
 		for (auto v : data.verts) {
 			verts.push_back( v[0] );
 			verts.push_back( v[1] );
 			verts.push_back( v[2] );
+		}
+
+		size_t color_offset = verts.size()*sizeof(float);
+
+		for (auto v : data.verts) {
+			verts.push_back( 0.5 );
+			verts.push_back( 0.5 );
+			verts.push_back( 0.5 );
+			verts.push_back( 1.0 );
 		}
 
 		for (auto t : data.faces) {
@@ -101,6 +112,8 @@ struct {
 			indices.push_back( t.verts[1].index );
 			indices.push_back( t.verts[2].index );
 		}
+
+		num_elements = indices.size();
 
 		gl::gen_buffers( 1, &vbo );
 		gl::bind_buffer( GL_ARRAY_BUFFER, vbo );
@@ -117,7 +130,9 @@ struct {
 
 		gl::bind_buffer( GL_ARRAY_BUFFER, vbo );
 		gl::enable_vertex_attrib_array( 0 );
+		gl::enable_vertex_attrib_array( 1 );
 		gl::vertex_attrib_pointer( 0, 3, GL_FLOAT, GL_FALSE, 0, 0 );
+		gl::vertex_attrib_pointer( 1, 4, GL_FLOAT, GL_FALSE, 0, color_offset );
 		gl::bind_buffer( GL_ELEMENT_ARRAY_BUFFER, ibo );
 		gl::bind_vertex_array( 0 );
 	}
@@ -244,7 +259,8 @@ void render()
 	offset.get(2,3) = -5;
 	offset.get(1,3) = -2;
 	program["transform"] = offset;
-	gl::draw_elements(GL_TRIANGLES, butruck.indices.size(), GL_UNSIGNED_SHORT, 0);
+	for (int i =0; i<100;++i)
+	gl::draw_elements(GL_TRIANGLES, butruck.num_elements, GL_UNSIGNED_SHORT, 0);
 
 	gl::use_program( 0 );
 }
