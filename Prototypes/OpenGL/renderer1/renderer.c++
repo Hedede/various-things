@@ -19,8 +19,6 @@
 #include <aw/fileformat/obj/loader.h>
 #include <aw/io/input_file_stream.h>
 
-#include "renderer.h"
-
 namespace aw::gl3 {
 using namespace sv_literals;
 
@@ -70,13 +68,6 @@ void initialize_program()
 
 	gl::use_program( 0 );
 }
-
-GLuint vao1;
-GLuint vao2;
-
-GLuint vbo;
-GLuint ibo;
-
 
 struct {
 	GLuint vao;
@@ -141,31 +132,6 @@ struct {
 
 void initialize_scene()
 {
-	gl::gen_buffers( 1, &vbo );
-	gl::bind_buffer( GL_ARRAY_BUFFER, vbo );
-	gl::buffer_data( GL_ARRAY_BUFFER, sizeof(vertexData), vertexData, GL_STATIC_DRAW );
-	gl::bind_buffer( GL_ARRAY_BUFFER, 0 );
-
-	gl::gen_buffers( 1, &ibo );
-	gl::bind_buffer( GL_ELEMENT_ARRAY_BUFFER, ibo );
-	gl::buffer_data( GL_ELEMENT_ARRAY_BUFFER, sizeof(indexData), indexData, GL_STATIC_DRAW );
-	gl::bind_buffer( GL_ELEMENT_ARRAY_BUFFER, 0 );
-
-
-	gl::gen_vertex_arrays(1, &vao1);
-	gl::bind_vertex_array(vao1);
-
-	size_t colorDataOffset = sizeof(float) * 3 * numberOfVertices;
-
-	gl::bind_buffer( GL_ARRAY_BUFFER, vbo );
-	gl::enable_vertex_attrib_array( 0 );
-	gl::enable_vertex_attrib_array( 1 );
-	gl::vertex_attrib_pointer( 0, 3, GL_FLOAT, GL_FALSE, 0, 0 );
-	gl::vertex_attrib_pointer( 1, 4, GL_FLOAT, GL_FALSE, 0, colorDataOffset );
-	gl::bind_buffer( GL_ELEMENT_ARRAY_BUFFER, ibo );
-
-	gl::bind_vertex_array( 0 );
-
 	butruck.load();
 
 	gl::enable(GL_CULL_FACE);
@@ -240,26 +206,12 @@ void render()
 
 	auto offset = math::identity_matrix<float,4>;
 
-	gl::bind_vertex_array(vao1);
-	program["transform"] = offset;
-	gl::draw_elements(GL_TRIANGLES, ARRAY_COUNT(indexData), GL_UNSIGNED_SHORT, 0);
-
-	offset.get(2,3) = -0.1;
-	program["transform"] = offset;
-	gl::draw_elements_base_vertex(GL_TRIANGLES, ARRAY_COUNT(indexData),
-		GL_UNSIGNED_SHORT, 0, numberOfVertices / 2);
-
-	offset.get(2,3) = -0.1;
-	offset = math::roll_matrix( degrees<float>{ 45.0f } );
-	program["transform"] = offset;
-	gl::draw_elements(GL_TRIANGLES, ARRAY_COUNT(indexData), GL_UNSIGNED_SHORT, 0);
-
 	gl::bind_vertex_array(butruck.vao);
 	offset = math::yaw_matrix( degrees<float>( 180.0f ) );
 	offset.get(2,3) = -5;
 	offset.get(1,3) = -2;
 	program["transform"] = offset;
-	for (int i =0; i<100;++i)
+
 	gl::draw_elements(GL_TRIANGLES, butruck.num_elements, GL_UNSIGNED_SHORT, 0);
 
 	gl::use_program( 0 );
