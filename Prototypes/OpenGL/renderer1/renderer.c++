@@ -16,6 +16,8 @@
 
 #include <aw/graphics/gl/shader_file.h>
 #include <aw/graphics/gl/camera.h>
+#include <aw/fileformat/obj/loader.h>
+#include <aw/io/input_file_stream.h>
 
 #include "renderer.h"
 
@@ -59,10 +61,10 @@ void initialize_program()
 	gl::use_program( handle(program) );
 
 	cam.set_near_z(1.0f);
-	cam.set_far_z(3.0f);
+	cam.set_far_z(10.0f);
 
 	cam.set_aspect_ratio(1.0f);
-	cam.set_fov( math::degrees<float>{90} );
+	cam.set_fov( degrees<float>{90} );
 
 	program["perspective"] = cam.projection_matrix();
 
@@ -74,6 +76,52 @@ GLuint vao2;
 
 GLuint vbo;
 GLuint ibo;
+
+
+struct {
+	std::vector< float > verts;
+	std::vector< u16 > indices;
+
+	GLuint vao;
+	GLuint vbo;
+	GLuint ibo;
+
+	void load()
+	{
+		io::input_file_stream file{ "butruck.obj" };
+		auto data = obj::mesh::parse( file );
+		for (auto v : data.verts) {
+			verts.push_back( v[0] );
+			verts.push_back( v[1] );
+			verts.push_back( v[2] );
+		}
+
+		for (auto t : data.faces) {
+			indices.push_back( t.verts[0].index );
+			indices.push_back( t.verts[1].index );
+			indices.push_back( t.verts[2].index );
+		}
+
+		gl::gen_buffers( 1, &vbo );
+		gl::bind_buffer( GL_ARRAY_BUFFER, vbo );
+		gl::buffer_data( GL_ARRAY_BUFFER, verts.size() * sizeof(float), verts.data(), GL_STATIC_DRAW );
+		gl::bind_buffer( GL_ARRAY_BUFFER, 0 );
+
+		gl::gen_buffers( 1, &ibo );
+		gl::bind_buffer( GL_ELEMENT_ARRAY_BUFFER, ibo );
+		gl::buffer_data( GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(u16), indices.data(), GL_STATIC_DRAW );
+		gl::bind_buffer( GL_ELEMENT_ARRAY_BUFFER, 0 );
+
+		gl::gen_vertex_arrays(1, &vao);
+		gl::bind_vertex_array(vao);
+
+		gl::bind_buffer( GL_ARRAY_BUFFER, vbo );
+		gl::enable_vertex_attrib_array( 0 );
+		gl::vertex_attrib_pointer( 0, 3, GL_FLOAT, GL_FALSE, 0, 0 );
+		gl::bind_buffer( GL_ELEMENT_ARRAY_BUFFER, ibo );
+		gl::bind_vertex_array( 0 );
+	}
+} butruck;
 
 
 void initialize_scene()
@@ -102,6 +150,8 @@ void initialize_scene()
 	gl::bind_buffer( GL_ELEMENT_ARRAY_BUFFER, ibo );
 
 	gl::bind_vertex_array( 0 );
+
+	butruck.load();
 
 	gl::enable(GL_CULL_FACE);
 	gl::cull_face(GL_BACK);
@@ -173,7 +223,7 @@ void render()
 	program[campos_location] = cam;
 
 
-	auto offset = math::make_identity<float,4>();
+	auto offset = math::identity_matrix<float,4>;
 
 	gl::bind_vertex_array(vao1);
 	program["transform"] = offset;
@@ -185,9 +235,16 @@ void render()
 		GL_UNSIGNED_SHORT, 0, numberOfVertices / 2);
 
 	offset.get(2,3) = -0.1;
-	offset = math::roll_matrix( 45.0f );
+	offset = math::roll_matrix( degrees<float>{ 45.0f } );
 	program["transform"] = offset;
 	gl::draw_elements(GL_TRIANGLES, ARRAY_COUNT(indexData), GL_UNSIGNED_SHORT, 0);
+
+	gl::bind_vertex_array(butruck.vao);
+	offset = math::yaw_matrix( degrees<float>( 180.0f ) );
+	offset.get(2,3) = -5;
+	offset.get(1,3) = -2;
+	program["transform"] = offset;
+	gl::draw_elements(GL_TRIANGLES, butruck.indices.size(), GL_UNSIGNED_SHORT, 0);
 
 	gl::use_program( 0 );
 }
@@ -217,6 +274,10 @@ int main()
 	initialize_program();
 	initialize_scene();
 	reshape(800, 600);
+
+	GLint num;
+	gl::get_integerv(GL_MAX_VERTEX_UNIFORM_COMPONENTS, &num);
+	std::cout << "maxvert: " << num << '\n';
 
 	size_t ctr = 0;
 	using namespace std::chrono;

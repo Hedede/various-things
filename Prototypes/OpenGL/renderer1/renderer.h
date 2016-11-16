@@ -129,5 +129,9 @@ const GLshort indexData[] =
 	17, 16, 14,
 };
 
-#define ARRAY_COUNT( array ) (sizeof( array ) / (sizeof( array[0] ) * (sizeof( array ) != sizeof(void*) || sizeof( array[0] ) <= sizeof(void*))))
+template<typename T, size_t N>
+constexpr size_t ARRAY_COUNT( T const(&array)[N] )
+{
+	return N;
+}
 } // namespace aw::gl3
