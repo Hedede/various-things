@@ -1,4 +1,5 @@
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_image.h>
 #include <iostream>
 
 
@@ -22,8 +23,13 @@ void InitSDL()
 		posY,
 		width,
 		height,
-		SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE
+		SDL_WINDOW_BORDERLESS
 	);
+	auto surface = SDL_GetWindowSurface(sdl_window);
+	auto image = IMG_Load("splash.png");
+	SDL_BlitSurface(image, NULL, surface, NULL);
+	SDL_UpdateWindowSurface(sdl_window);
+
 }
 
 namespace {
@@ -138,7 +144,7 @@ void PollEvents()
 	}
 }
 
-int main()
+int main(int argc, char *argv[])
 {
 	InitSDL();
 
