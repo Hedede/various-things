@@ -13,6 +13,7 @@
 
 #include <aw/graphics/gl/shader.h>
 #include <aw/graphics/gl/program.h>
+#include <aw/graphics/gl/model.h>
 
 #include <aw/graphics/gl/shader_file.h>
 #include <aw/graphics/gl/camera.h>
@@ -69,29 +70,8 @@ void initialize_program()
 	gl::use_program( 0 );
 }
 
-struct model_data_contiguous {
-	std::vector< float > data;
-	size_t vertex_offset;
-	size_t normal_offset;
-	size_t color_offset;
-	size_t texcoord_offset;
-};
-
-struct model_data_interleaved {
-	struct vertex {
-		float position[3];
-		float normal[3];
-		float color[4];
-		float texcoord[3];
-	};
-	std::vector< vertex > data;
-};
-
 struct {
-	GLuint vao;
-	GLuint vbo;
-	GLuint ibo;
-	size_t num_elements;
+	optional<gl3::model> model;
 
 	void load()
 	{
@@ -122,30 +102,13 @@ struct {
 			indices.push_back( t.verts[2].index );
 		}
 
-		num_elements = indices.size();
+		vert_data vd{ verts, 0, color_offset };
+		mesh_data md{ indices };
 
-		gl::gen_buffers( 1, &vbo );
-		gl::bind_buffer( GL_ARRAY_BUFFER, vbo );
-		gl::buffer_data( GL_ARRAY_BUFFER, verts.size() * sizeof(float), verts.data(), GL_STATIC_DRAW );
-		gl::bind_buffer( GL_ARRAY_BUFFER, 0 );
-
-		gl::gen_buffers( 1, &ibo );
-		gl::bind_buffer( GL_ELEMENT_ARRAY_BUFFER, ibo );
-		gl::buffer_data( GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(u16), indices.data(), GL_STATIC_DRAW );
-		gl::bind_buffer( GL_ELEMENT_ARRAY_BUFFER, 0 );
-
-		gl::gen_vertex_arrays(1, &vao);
-		gl::bind_vertex_array(vao);
-
-		gl::bind_buffer( GL_ARRAY_BUFFER, vbo );
-		gl::enable_vertex_attrib_array( 0 );
-		gl::enable_vertex_attrib_array( 1 );
-		gl::vertex_attrib_pointer( 0, 3, GL_FLOAT, GL_FALSE, 0, 0 );
-		gl::vertex_attrib_pointer( 1, 4, GL_FLOAT, GL_FALSE, 0, color_offset );
-		gl::bind_buffer( GL_ELEMENT_ARRAY_BUFFER, ibo );
-		gl::bind_vertex_array( 0 );
+		model = std::move(gl3::model( vd, md ));
 	}
 } butruck;
+
 
 void initialize_scene()
 {
@@ -223,13 +186,14 @@ void render()
 
 	auto offset = math::identity_matrix<float,4>;
 
-	gl::bind_vertex_array(butruck.vao);
+	gl::bind_vertex_array(butruck.model->vao);
 	offset = math::yaw_matrix( degrees<float>( 180.0f ) );
 	offset.get(2,3) = -5;
 	offset.get(1,3) = -2;
 	program["transform"] = offset;
 
-	gl::draw_elements(GL_TRIANGLES, butruck.num_elements, GL_UNSIGNED_SHORT, 0);
+	for (auto obj : butruck.model->objects)
+		gl::draw_elements_base_vertex(GL_TRIANGLES, obj.num_elements, GL_UNSIGNED_SHORT, 0, obj.offset);
 
 	gl::use_program( 0 );
 }
