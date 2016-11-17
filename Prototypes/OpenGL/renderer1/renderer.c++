@@ -69,6 +69,24 @@ void initialize_program()
 	gl::use_program( 0 );
 }
 
+struct model_data_contiguous {
+	std::vector< float > data;
+	size_t vertex_offset;
+	size_t normal_offset;
+	size_t color_offset;
+	size_t texcoord_offset;
+};
+
+struct model_data_interleaved {
+	struct vertex {
+		float position[3];
+		float normal[3];
+		float color[4];
+		float texcoord[3];
+	};
+	std::vector< vertex > data;
+};
+
 struct {
 	GLuint vao;
 	GLuint vbo;
@@ -128,7 +146,6 @@ struct {
 		gl::bind_vertex_array( 0 );
 	}
 } butruck;
-
 
 void initialize_scene()
 {
