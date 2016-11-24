@@ -1,0 +1,66 @@
+#!/dev/human
+
+// well, na samom dele eto reverse reader
+
+open("tmsoap.itd");
+
+hex<int> index_entry = look_at(offset(0x40));
+hex<int> index_loc   = look_at(index_entry):
+hex<int> index_size  = look_next(index_entry, 8):
+
+to_big_endian(&index_loc);
+to_big_endian(&index_size);
+
+launch(terminal);
+type("xxd -s $index_loc -l $index_size tmsoap.itd tmp");
+enter();
+type("xxd -r -s -$index_size tmp tm9.idx");
+enter();
+
+open("tm9.idx");
+
+scroll(cur_file.end);
+pick_random<string>(); remember(picked());
+
+hex<int> what = look_at(gui.label("offset"));
+
+found = gui.hotKey("<Ctrl>f", what);
+
+if(!found) {
+	fuck_this();
+}
+
+look_at(found);
+file_id = look_next(found, 8);
+rememder(file_id);
+
+loop {
+	look_at(found);
+	hex<int> curOffset = look_at(gui.label("offset"));
+
+	if(curOffset == primerno(cur_file.begin()) {
+		break;
+	} else if(curOffset == primerno(ebenya)) {
+		fuck_this();
+	}
+
+	found = gui.hotKey("<Ctrl>f", curOffset);
+	hex<int> nameOffset = look_at(found);
+	string name = look_at(nameOffset);
+	if(name != look_at(window("File manager")) {
+		alert();
+	}
+}
+
+if(!fail()) {
+	look_at("tmsoap.itd", file_id);
+	remember(numbers(file_pos, file_size));
+	altTab(terminal);
+	
+	type("xxd -s $file_pos -l $file_size tmsoap.itd $remembered_string()");
+	enter();
+}
+
+if(file(original) != file(extracted)) {
+	fuck_my_life();
+}

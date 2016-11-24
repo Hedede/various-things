@@ -1,0 +1,28 @@
+#!/usr/bin/bash
+
+show_usage() {
+echo "Usage: bench-sort program [number-of-runs] [delay]"
+}
+
+[[ -z $1 ]] && show_usage && exit 4
+[[ -z $2 ]] && count=10 || count=$2
+echo $count runs
+
+results=()
+result=
+
+run_sort() {
+	result=$(./a.out | tail -1 | awk -f'bench-tries.awk')
+	results+=($result)
+}
+
+for i in $(seq 1 $count)
+do
+	time run_sort;
+	echo $result
+	! [[ -z $3 ]] && sleep $3;
+done
+
+expr=$(IFS=+ ; echo "${results[*]}")
+
+bc <<< "(${expr})/$count"
