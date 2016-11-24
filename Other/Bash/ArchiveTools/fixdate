@@ -1,0 +1,9 @@
+#!/usr/bin/bash
+for file in "$@"
+do
+	date=$(basename "$file")
+	date=${date%.*}
+	date=$(echo "$date" | cut -d_ --output-delimiter=' ' -f2,3)
+	touch "$file" -d "$date"
+	echo "$file -> $date"
+done

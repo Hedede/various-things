@@ -1,0 +1,11 @@
+#!/usr/bin/bash
+for file in "$@"
+do
+	filename=$(basename "$file")
+	ext="${filename##*.}"
+	filename="${filename%.*}"
+
+	NEW=$(date -d @$(stat -c %Y "$file") +"Screenshot_%Y-%m-%d_%H:%M:%S.${ext}")
+	mv "$file" "$NEW"
+	echo $NEW
+done
