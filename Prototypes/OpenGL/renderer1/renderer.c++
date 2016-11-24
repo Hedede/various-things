@@ -39,8 +39,8 @@ void initialize_program()
 {
 	std::vector<shader> shaderList;
 
-	auto vsh = load_shader( gl::shader_type::vertex,   "vert4.glsl" );
-	auto fsh = load_shader( gl::shader_type::fragment, "frag.glsl" );
+	auto vsh = load_shader( gl::shader_type::vertex,   "vert5.glsl" );
+	auto fsh = load_shader( gl::shader_type::fragment, "frag1.glsl" );
 
 	if (vsh && fsh) {
 		shaderList.push_back(std::move(*vsh));
@@ -116,7 +116,7 @@ void initialize_scene()
 
 	gl::enable(GL_CULL_FACE);
 	gl::cull_face(GL_BACK);
-	gl::front_face(GL_CW);
+	gl::front_face(GL_CCW);
 
 	gl::enable(GL_DEPTH_TEST);
 	gl::depth_mask(GL_TRUE);
