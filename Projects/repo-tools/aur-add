@@ -1,0 +1,222 @@
+#!/usr/bin/bash
+# Copyright (C) 2014  Hedede <hededrk@gmail.com>
+# 
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+pkgbuild_get()
+{
+	$libpath/pkgbuild_get.sh $@
+}
+
+fetch_pkg()
+{
+	local pkgname=$1
+	local aur="https://aur.archlinux.org/packages"
+	local pkgurl="${aur}/${pkgname:0:2}/${pkgname}/${pkgname}.tar.gz"
+
+	curl -o "build/${pkgname}.tar.gz" "$pkgurl"
+}
+
+extract_pkg()
+{
+	local pkgname=$1
+
+	cd build
+	tar -xvf "${pkgname}.tar.gz"	|| return 1
+	cd $repo_base
+}
+
+verify_pkgbuild()
+{
+	local pkgname=$1
+	local aur="https://aur.archlinux.org/packages"
+	local pkgurl="${aur}/${pkgname:0:2}/${pkgname}/PKGBUILD"
+
+	curl -o "$pkgname" "$pkgurl"
+
+	[[ -z $EDITOR ]] && EDITOR=vi
+
+	$EDITOR $pkgname
+
+	print_nice 'b' ":: Build package? [yes/no]"
+	read CONFIRM
+	[[ "$CONFIRM" == "yes" ]] || return 1
+}
+
+build_package()
+{
+	local pkgname=$1
+
+	cd "build/$pkgname"
+	makepkg -sf			|| return 1
+
+	cd $repo_base
+}
+
+add_to_repo()
+{
+	local pkgname=$1
+	local vers=$(pkgbuild_get v "$pkgname")
+	
+	pkglist_find "$pkgname"
+	local exists=$?
+	
+	[[ $exists != 0 ]] || mv "$pkgname"*'.tar.xz' "./old"
+
+	mv "build/$pkgname/$pkgname"*'.tar.xz'	'.'
+	
+	
+	repo-add "${repo}.db.tar.gz"  "$pkgname"*'.tar.xz' || return 1
+
+
+	[[ $exists != 0 ]] && pkglist_add    "$pkgname" 'aur' "$vers" \
+	                   || pkglist_update "$pkgname" 'aur' "$vers"
+
+	cd $repo_base
+}
+
+get_pkg()
+{
+	local pkg=$1
+
+	print_nice 'bB' "Fetching tarball ..."
+	fetch_pkg		$1		|| exit 1
+	print_nice 'bB' "Extracting tarball ..."
+	extract_pkg		$1		|| exit 1
+
+	# Overwrite PKGBUILD with one reviewed by user
+	[[ -e $1 ]] && mv -f	$1 "build/$1/PKGBUILD"
+
+	print_nice 'bB' "Building ${pkg} ..."
+	build_package	      	$1		|| exit 1
+	print_nice 'bB' "Adding ${pkg} into local repository ..."
+	add_to_repo		$1		|| exit 1
+}
+
+remove_pkg()
+{
+	local pkgname=$1
+
+	mv "$pkgname"*'.tar.xz' "./old"
+	repo-remove "${repo}.db.tar.gz" "$pkgname" && pkglist_remove "$pkgname"
+}
+
+add_pkg()
+{
+	print_nice 'bB' "Fetching PKGBUILD ..."
+	verify_pkgbuild	$1 || exit 1
+
+	get_pkg $1
+}
+
+update_queue_pkg()
+{
+	local pkg=$1
+
+	verify_pkgbuild	$pkg || return 1
+	update_queue+=("$pkg")
+}
+
+update_run()
+{
+	[[ ${#update_queue[@]} -eq 0 ]] && print_nice bG 'Nothing to do' && exit 1
+
+	for pkg in ${update_queue[@]}
+	do
+		get_pkg $pkg $repo
+	done
+}
+
+update_repo()
+{
+	local id=0
+
+	unset update_queue
+	
+	for pkg in ${pkglist[@]}
+	do
+		local pkgver=$(package-query -Af "%v" "$pkg")
+		if ! [[ "$pkgver" == "${pkglist_ver[$id]}" ]]
+		then
+			print_nice 'bB' "Updating ${pkg}..."
+			update_queue_pkg ${pkg}
+		fi
+
+		let id++
+	done
+
+	update_run
+}
+
+source lib/args.sh
+source lib/print_nice.sh
+source lib/pkglist.sh
+
+explode_args $@
+set -- "${OPTS[@]}"
+
+# Parse arguments
+while [[ $# > 0 ]]
+do
+	arg="$1"
+	shift
+
+	case $arg in
+	-R|--remove)
+		action='remove'
+		;;
+	-A|--aur)
+		action='add'
+		;;
+	-U|--update)
+		action='sync'
+		;;
+	--)
+		shift
+		ARGS+=("$@")
+		break
+		;;
+	*)
+		ARGS+=("$arg")
+		;;
+	esac			
+done
+
+set -- "${ARGS[@]}"
+
+pkg=$1
+repo='aur-local'
+repo_base="/home/hudd/AUR/$repo"
+libpath=$PWD/lib
+
+cd $repo_base
+
+load_pkglist $repo
+
+case $action in 
+	'remove')
+		print_nice 'bB' "Removing package ${pkgname}..."
+		remove_pkg		$pkg
+		;;
+	'add')	add_pkg			$pkg
+		;;
+	'sync')
+		update_repo
+		;;
+	*)
+		print_nice bR 'No action specified'
+esac
+
+save_pkglist $repo
