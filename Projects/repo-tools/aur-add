@@ -15,26 +15,39 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+#set -x
 libpath=$PWD/lib
+
+aur_git="https://aur.archlinux.org/cgit/aur.git"
+build_dir=build-aur
+pkg_dir="pkg/aur"
+repo_dir=repo
+repo_file="awrepo.db.tar.xz"
+tmpdir="/tmp/aur-add"
+carch="x86_64"
+
+pushd() { builtin pushd $1 > /dev/null; }
+popd()  { builtin popd $1 > /dev/null; }
 
 fetch_pkg()
 {
 	local pkgname=$1
 #	local aur="https://aur.archlinux.org/packages"
 #	local pkgurl="${aur}/${pkgname:0:2}/${pkgname}/${pkgname}.tar.gz"
-	local aur="https://aur.archlinux.org/cgit/aur.git/snapshot"
-	local pkgurl="${aur}/${pkgname}.tar.gz"
+	local pkgurl="${aur_git}/snapshot/${pkgname}.tar.gz"
 
-	curl -o "build/${pkgname}.tar.gz" "$pkgurl"
+	pushd "$build_dir"
+	curl -o "${pkgname}.tar.gz" "$pkgurl"
+	popd
 }
 
 extract_pkg()
 {
 	local pkgname=$1
 
-	cd build
-	tar -xvf "${pkgname}.tar.gz"	|| return 1
-	cd $repo_base
+	pushd "$build_dir"
+	tar -xvf "${pkgname}.tar.gz"  || return 1
+	popd
 }
 
 verify_pkgbuild()
@@ -42,8 +55,9 @@ verify_pkgbuild()
 	local pkgname=$1
 #	local aur="https://aur.archlinux.org/packages"
 #	local pkgurl="${aur}/${pkgname:0:2}/${pkgname}/PKGBUILD"
-	local aur="https://aur.archlinux.org/cgit/aur.git/plain/PKGBUILD?h="
-	local pkgurl="${aur}${pkgname}"
+	local pkgurl="${aur_git}/plain/PKGBUILD?h=${pkgname}"
+
+	pushd "$tmpdir"
 
 	curl -o "$pkgname" "$pkgurl"
 
@@ -51,10 +65,15 @@ verify_pkgbuild()
 
 	$EDITOR $pkgname
 
+	popd
+
 	print_nice 'b' ":: Build package? [yes/no]"
+
+	local CONFIRM="no"
 	read CONFIRM
 	[[ "$CONFIRM" == "yes" ]] || return 1
 }
+
 
 check_deps()
 {
@@ -65,32 +84,51 @@ build_package()
 {
 	local pkgname=$1
 
-	cd "build/$pkgname"
-	makepkg -sf			|| return 1
+	pushd "${build_dir}/${pkgname}"
+	makepkg -sf --sign || return 1
 
-	cd $repo_base
+	popd
+}
+
+backup_old()
+{
+	local pkgname=$1
+
+	pushd "$pkg_dir"
+	mv "$pkgname"*'.pkg.tar'* "./old"
+	popd
+}
+
+check_existance()
+{
+	pkglist_find "$1"
+	[[ $? = 0 ]] && echo true || echo false
 }
 
 add_to_repo()
 {
 	local pkgname=$1
 	local vers=$(pkgbuild_get v "$pkgname")
+	local arch=$(pkgbuild_get a "$pkgname")
+	local pkgext=$(pkgbuild_get x "$pkgname")
 	
-	pkglist_find "$pkgname"
-	local exists=$?
+	local exists=$(check_existance "$pkgname")
 	
-	[[ $exists != 0 ]] || mv "$pkgname"*'.pkg'* "./old"
+	[[ $exists = true ]] && backup_old "$pkgname"
 
-	mv "build/$pkgname/$pkgname"*'.pkg'*	'.'
+	local filename="${pkgname}-${vers}-${arch}" #.pkg.tar.xz
+	mv "${build_dir}/${pkgname}/${filename}.pkg.tar"* "${pkg_dir}"
 	
-	
-	repo-add "${repo}.db.tar.gz"  "$pkgname"*'.pkg'* || return 1
+	local repo_db="${repo_dir}/${repo_file}"
+	local pkg_tar="${pkg_dir}/${filename}${pkgext}"
+	repo-add "$repo_db" "$pkg_tar" || return 1
 
-
-	[[ $exists != 0 ]] && pkglist_add    "$pkgname" 'aur' "$vers" \
-	                   || pkglist_update "$pkgname" 'aur' "$vers"
-
-	cd $repo_base
+	if [[ $exists = true ]]
+	then
+		pkglist_update "$pkgname" 'aur' "$vers"
+	else
+		pkglist_add    "$pkgname" 'aur' "$vers"
+	fi
 }
 
 get_pkg()
@@ -103,7 +141,7 @@ get_pkg()
 	extract_pkg		$1		|| exit 1
 
 	# Overwrite PKGBUILD with one reviewed by user
-	[[ -e $1 ]] && mv -f	$1 "build/$1/PKGBUILD"
+	[[ -e $1 ]] && mv -f "${tmpdir}/$1" "${build_dir}/$1/PKGBUILD"
 
 	#print_nice 'bB' "Checking dependencies ..."
 	check_deps
@@ -118,14 +156,15 @@ remove_pkg()
 {
 	local pkgname=$1
 
-	mv "$pkgname"*'.pkg'* "./old"
-	repo-remove "${repo}.db.tar.gz" "$pkgname" && pkglist_remove "$pkgname"
+	backup_old $pkgname
+	repo-remove "${repo_dir}/${repo_file}" "$pkgname"
+	pkglist_remove "$pkgname"
 }
 
 add_pkg()
 {
 	print_nice 'bB' "Fetching PKGBUILD ..."
-	verify_pkgbuild	$1 || exit 1
+	verify_pkgbuild $1 || exit 1
 
 	# pkg_is_split=$(pkgbuild_get s "$1" "$1")
 	# pkg_name=$(pkgbuild_get n "$1" "$1")
@@ -180,6 +219,9 @@ source lib/print_nice.sh
 source lib/pkglist.sh
 source lib/pkgbuild.sh
 
+[[ -d $tmpdir ]]        || mkdir "$tmpdir"
+[[ -d "$pkg_dir/old" ]] || mkdir "$pkg_dir/old"
+
 explode_args $@
 set -- "${OPTS[@]}"
 
@@ -199,6 +241,9 @@ do
 	-U|--update)
 		action='sync'
 		;;
+	-C|--check)
+		action='check'
+		;;
 	--)
 		shift
 		ARGS+=("$@")
@@ -213,19 +258,18 @@ done
 set -- "${ARGS[@]}"
 
 pkg=$1
-repo='aur-local'
-repo_base="/home/hudd/AUR/$repo"
 
-cd $repo_base
-
-load_pkglist $repo
+load_pkglist "$pkg_dir"
 
 case $action in 
 	'remove')
 		print_nice 'bB' "Removing package ${pkgname}..."
-		remove_pkg		$pkg
+		remove_pkg	$pkg
 		;;
-	'add')	add_pkg			$pkg
+	'add')	add_pkg		$pkg
+		;;
+	'check')
+		check_existance $pkg
 		;;
 	'sync')
 		update_repo
@@ -234,4 +278,4 @@ case $action in
 		print_nice bR 'No action specified'
 esac
 
-save_pkglist $repo
+save_pkglist "$pkg_dir"

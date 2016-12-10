@@ -21,17 +21,22 @@ load_pkglist()
 	unset pkglist_src
 	unset pkglist_ver
 
+	[[ -e "$1/pkglist" ]] || return 0
+
 	while IFS='|' read -r name source ver
 	do
 		pkglist+=("$name")
 		pkglist_src+=("$source")
 		pkglist_ver+=("$ver")
-	done < "$repo_base/pkglist"
+	done < "$1/pkglist"
 }
 
 save_pkglist()
 {
-	mv -f "pkglist" "pkglist.old"
+	if [[ -e "$1/pkglist" ]]
+	then
+		mv -f "$1/pkglist" "$1/pkglist.old"
+	fi
 
 	for ((i=0; i<=${#pkglist[@]}; i++))
 	do
@@ -41,7 +46,7 @@ save_pkglist()
 
 		[[ -z "$name" ]] && continue
 		printf '%s|%s|%s\n' "$name" "$src" "$ver"
-	done > "$repo_base/pkglist"
+	done > "$1/pkglist"
 }
 
 pkglist_find()

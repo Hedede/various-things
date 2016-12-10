@@ -18,5 +18,5 @@
 
 pkgbuild_get()
 {
-	$libpath/pkgbuild_get.sh $@
+	. $libpath/pkgbuild_get.sh $@
 }

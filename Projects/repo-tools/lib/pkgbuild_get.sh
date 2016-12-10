@@ -47,6 +47,22 @@ getname_()
 	is_split__ && echo ${pkgname[*]} || echo $pkgname
 }
 
+get_ext_()
+{
+	[[ -z $PKGEXT ]] || echo $PKGEXT
+	echo ".pkg.tar.xz"
+}
+
+get_arch_()
+{
+	if [[ $arch = "any" ]]
+	then
+		echo "any"
+	else
+		echo "$carch"
+	fi
+}
+
 get_deps_()
 {
 	echo ${depends[*]}
@@ -61,7 +77,7 @@ request_=$1
 pkgname_=$2
 if [[ -z $3 ]]
 then
-	pkgbuild_="build/${pkgname_}/PKGBUILD"
+	pkgbuild_="${build_dir}/${pkgname_}/PKGBUILD"
 else
 	pkgbuild_=$3
 fi
@@ -74,11 +90,17 @@ while [[ $i<${#request_} ]] ; do
 		v)
 			getver_
 			;;
+		a)
+			get_arch_
+			;;
 		b)
 			getbase_
 			;;
 		n)
 			getname_
+			;;
+		x)
+			get_ext_
 			;;
 		s)
 			is_split_
