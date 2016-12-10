@@ -1,0 +1,32 @@
+*Codewars.G964.Weirdgenprime> anOverAverage 30
+3
+*Codewars.G964.Weirdgenprime> anOverAverage 301
+^CInterrupted.
+*Codewars.G964.Weirdgenprime> anOverAverage 10
+3
+*Codewars.G964.Weirdgenprime> anOverAverage 20
+3
+*Codewars.G964.Weirdgenprime> anOverAverage 40
+3
+Prelude> :load weird-prime-gen.hs 
+[1 of 1] Compiling Codewars.G964.Weirdgenprime ( weird-prime-gen.hs, interpreted )
+Ok, modules loaded: Codewars.G964.Weirdgenprime.
+*Codewars.G964.Weirdgenprime> take 20 gs
+[1,1,1,1,5,3,1,1,1,1,11,3,1,1,1,1,1,1,1,1]
+*Codewars.G964.Weirdgenprime> :load weird-prime-gen.hs 
+[1 of 1] Compiling Codewars.G964.Weirdgenprime ( weird-prime-gen.hs, interpreted )
+Ok, modules loaded: Codewars.G964.Weirdgenprime.
+*Codewars.G964.Weirdgenprime> take 20 asgs
+[(7,1),(8,1),(9,1),(10,1),(15,5),(18,3),(19,1),(20,1),(21,1),(22,1),(33,11),(36,3),(37,1),(38,1),(39,1),(40,1),(41,1),(42,1),(43,1),(44,1)]
+*Codewars.G964.Weirdgenprime> replaceNotOnes 20
+
+<interactive>:4:16: error:
+    • No instance for (Num [(Int, Int)]) arising from the literal ‘20’
+    • In the first argument of ‘replaceNotOnes’, namely ‘20’
+      In the expression: replaceNotOnes 20
+      In an equation for ‘it’: it = replaceNotOnes 20
+*Codewars.G964.Weirdgenprime> take 100 $ replaceNotOnes asgs
+[(7,0),(8,0),(9,0),(10,0),(15,5),(18,6),(19,0),(20,0),(21,0),(22,0),(33,11),(36,12),(37,0),(38,0),(39,0),(40,0),(41,0),(42,0),(43,0),(44,0),(45,0),(46,0),(69,23),(72,24),(73,0),(74,0),(75,0),(76,0),(77,0),(78,0),(79,0),(80,0),(81,0),(82,0),(83,0),(84,0),(85,0),(86,0),(87,0),(88,0),(89,0),(90,0),(91,0),(92,0),(93,0),(94,0),(141,47),(144,48),(145,0),(150,50),(153,51),(154,0),(155,0),(156,0),(157,0),(158,0),(159,0),(160,0),(161,0),(162,0),(163,0),(164,0),(165,0),(166,0),(167,0),(168,0),(169,0),(170,0),(171,0),(172,0),(173,0),(174,0),(175,0),(176,0),(177,0),(178,0),(179,0),(180,0),(181,0),(182,0),(183,0),(184,0),(185,0),(186,0),(187,0),(188,0),(189,0),(190,0),(191,0),(192,0),(193,0),(194,0),(195,0),(196,0),(197,0),(198,0),(199,0),(200,0),(201,0),(202,0)]
+*Codewars.G964.Weirdgenprime> take 20 anOver
+[3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3]
+

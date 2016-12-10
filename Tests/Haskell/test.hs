@@ -11,3 +11,9 @@ len2 (_:xs) = 1 + len2 xs
 
 sum' xs = case xs of []     -> 0
                      (y:ys) -> y + sum ys
+
+remove :: Eq a => a -> [a] -> [a]
+remove y xs = filter (/=y) xs
+
+unique [] = []
+unique (x:xs) = x:remove x (unique xs)

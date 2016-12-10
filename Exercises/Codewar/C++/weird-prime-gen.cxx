@@ -22,7 +22,7 @@ struct sequence {
 		iterator() = default;
 
 		long long operator*() const { return cur; }
-		long long index() const { return n+1; }
+		long long index()     const { return n+1; }
 
 		iterator& operator++()
 		{
