@@ -50,7 +50,7 @@ print_nice_sub()
 				elif [[ -z $backg ]] ; then
 					backg=$fm
 				else
-					echo "Only two colors can be specified" && return 1
+					: # ignore
 				fi
 		esac
 		let i++

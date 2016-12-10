@@ -15,16 +15,15 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-pkgbuild_get()
-{
-	$libpath/pkgbuild_get.sh $@
-}
+libpath=$PWD/lib
 
 fetch_pkg()
 {
 	local pkgname=$1
-	local aur="https://aur.archlinux.org/packages"
-	local pkgurl="${aur}/${pkgname:0:2}/${pkgname}/${pkgname}.tar.gz"
+#	local aur="https://aur.archlinux.org/packages"
+#	local pkgurl="${aur}/${pkgname:0:2}/${pkgname}/${pkgname}.tar.gz"
+	local aur="https://aur.archlinux.org/cgit/aur.git/snapshot"
+	local pkgurl="${aur}/${pkgname}.tar.gz"
 
 	curl -o "build/${pkgname}.tar.gz" "$pkgurl"
 }
@@ -41,8 +40,10 @@ extract_pkg()
 verify_pkgbuild()
 {
 	local pkgname=$1
-	local aur="https://aur.archlinux.org/packages"
-	local pkgurl="${aur}/${pkgname:0:2}/${pkgname}/PKGBUILD"
+#	local aur="https://aur.archlinux.org/packages"
+#	local pkgurl="${aur}/${pkgname:0:2}/${pkgname}/PKGBUILD"
+	local aur="https://aur.archlinux.org/cgit/aur.git/plain/PKGBUILD?h="
+	local pkgurl="${aur}${pkgname}"
 
 	curl -o "$pkgname" "$pkgurl"
 
@@ -53,6 +54,11 @@ verify_pkgbuild()
 	print_nice 'b' ":: Build package? [yes/no]"
 	read CONFIRM
 	[[ "$CONFIRM" == "yes" ]] || return 1
+}
+
+check_deps()
+{
+	:
 }
 
 build_package()
@@ -73,12 +79,12 @@ add_to_repo()
 	pkglist_find "$pkgname"
 	local exists=$?
 	
-	[[ $exists != 0 ]] || mv "$pkgname"*'.tar.xz' "./old"
+	[[ $exists != 0 ]] || mv "$pkgname"*'.pkg'* "./old"
 
-	mv "build/$pkgname/$pkgname"*'.tar.xz'	'.'
+	mv "build/$pkgname/$pkgname"*'.pkg'*	'.'
 	
 	
-	repo-add "${repo}.db.tar.gz"  "$pkgname"*'.tar.xz' || return 1
+	repo-add "${repo}.db.tar.gz"  "$pkgname"*'.pkg'* || return 1
 
 
 	[[ $exists != 0 ]] && pkglist_add    "$pkgname" 'aur' "$vers" \
@@ -99,6 +105,9 @@ get_pkg()
 	# Overwrite PKGBUILD with one reviewed by user
 	[[ -e $1 ]] && mv -f	$1 "build/$1/PKGBUILD"
 
+	#print_nice 'bB' "Checking dependencies ..."
+	check_deps
+
 	print_nice 'bB' "Building ${pkg} ..."
 	build_package	      	$1		|| exit 1
 	print_nice 'bB' "Adding ${pkg} into local repository ..."
@@ -109,7 +118,7 @@ remove_pkg()
 {
 	local pkgname=$1
 
-	mv "$pkgname"*'.tar.xz' "./old"
+	mv "$pkgname"*'.pkg'* "./old"
 	repo-remove "${repo}.db.tar.gz" "$pkgname" && pkglist_remove "$pkgname"
 }
 
@@ -117,6 +126,10 @@ add_pkg()
 {
 	print_nice 'bB' "Fetching PKGBUILD ..."
 	verify_pkgbuild	$1 || exit 1
+
+	# pkg_is_split=$(pkgbuild_get s "$1" "$1")
+	# pkg_name=$(pkgbuild_get n "$1" "$1")
+	# pkg_base=$(pkgbuild_get b "$1" "$1")
 
 	get_pkg $1
 }
@@ -148,6 +161,8 @@ update_repo()
 	for pkg in ${pkglist[@]}
 	do
 		local pkgver=$(package-query -Af "%v" "$pkg")
+		print_nice 'bR' "$pkgver"
+		print_nice 'bG' "${pkglist_ver[$id]}"
 		if ! [[ "$pkgver" == "${pkglist_ver[$id]}" ]]
 		then
 			print_nice 'bB' "Updating ${pkg}..."
@@ -163,6 +178,7 @@ update_repo()
 source lib/args.sh
 source lib/print_nice.sh
 source lib/pkglist.sh
+source lib/pkgbuild.sh
 
 explode_args $@
 set -- "${OPTS[@]}"
@@ -199,7 +215,6 @@ set -- "${ARGS[@]}"
 pkg=$1
 repo='aur-local'
 repo_base="/home/hudd/AUR/$repo"
-libpath=$PWD/lib
 
 cd $repo_base
 

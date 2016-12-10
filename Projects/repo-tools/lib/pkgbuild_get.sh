@@ -30,7 +30,6 @@ getver_()
 getbase_()
 {
 	echo "$pkgbase"
-
 }
 
 is_split__()
@@ -41,7 +40,6 @@ is_split__()
 is_split_()
 {
 	is_split__ && echo 1 || echo 0
-	
 }
 
 getname_()
@@ -49,6 +47,15 @@ getname_()
 	is_split__ && echo ${pkgname[*]} || echo $pkgname
 }
 
+get_deps_()
+{
+	echo ${depends[*]}
+}
+
+get_makedeps_()
+{
+	echo ${makedepends[*]}
+}
 
 request_=$1
 pkgname_=$2
@@ -59,7 +66,7 @@ else
 	pkgbuild_=$3
 fi
 
-source_pkgbuild $pkgbuild_
+source_pkgbuild "$pkgbuild_"
 
 while [[ $i<${#request_} ]] ; do
 	req=${request_:$i:1}
@@ -75,6 +82,12 @@ while [[ $i<${#request_} ]] ; do
 			;;
 		s)
 			is_split_
+			;;
+		d)
+			get_deps_
+			;;
+		m)
+			get_makedeps_
 			;;
 		
 	esac

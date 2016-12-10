@@ -31,7 +31,7 @@ load_pkglist()
 
 save_pkglist()
 {
-	mv "pkglist" "pkglist.old"
+	mv -f "pkglist" "pkglist.old"
 
 	for ((i=0; i<=${#pkglist[@]}; i++))
 	do
