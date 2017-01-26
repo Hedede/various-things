@@ -60,7 +60,7 @@ void initialize_program()
 	gl::use_program( handle(program) );
 
 	cam.set_near_z(1.0f);
-	cam.set_far_z(10.0f);
+	cam.set_far_z(10000.0f);
 
 	cam.set_aspect_ratio(1.0f);
 	cam.set_fov( degrees<float>{90} );
@@ -160,6 +160,8 @@ void calc_positions()
 	// gl::buffer_sub_data( GL_ARRAY_BUFFER, 0, sizeof(vertex_positions), vec.data() );
 }
 
+float xx,yy,zz;
+
 void render()
 {
 	using namespace std::chrono;
@@ -188,12 +190,28 @@ void render()
 
 	gl::bind_vertex_array(butruck.model->vao);
 	offset = math::yaw_matrix( degrees<float>( 180.0f ) );
-	offset.get(2,3) = -5;
-	offset.get(1,3) = -2;
+	offset.get(2,3) = zz;
+	offset.get(1,3) = yy;
+	offset.get(0,3) = xx;
 	program["transform"] = offset;
-
+/*/
 	for (auto obj : butruck.model->objects)
 		gl::draw_elements_base_vertex(GL_TRIANGLES, obj.num_elements, GL_UNSIGNED_SHORT, 0, obj.offset);
+
+/*/	auto ix = 0;
+	auto iy = 0;
+	auto iz = 0;
+	for (auto ix = -5; ix < 10; ix+=5)
+	for (auto iy = -5; iy < 10; iy+=5)
+	for (auto iz = 0; iz<100;++iz)
+	{
+		offset.get(2,3) = zz - 5*iz;
+		offset.get(1,3) = yy + iy;
+		offset.get(0,3) = xx + ix;
+		program["transform"] = offset;
+		for (auto obj : butruck.model->objects)
+			gl::draw_elements_base_vertex(GL_TRIANGLES, obj.num_elements, GL_UNSIGNED_SHORT, 0, obj.offset);
+	}/**/
 
 	gl::use_program( 0 );
 }
@@ -228,10 +246,15 @@ int main()
 	gl::get_integerv(GL_MAX_VERTEX_UNIFORM_COMPONENTS, &num);
 	std::cout << "maxvert: " << num << '\n';
 
-	size_t ctr = 0;
+	size_t ctr  = 0;
+	size_t prev = 0;
 	using namespace std::chrono;
 	auto start = steady_clock::now();
 	auto point = start;
+	float delto = 0.5;
+	int min = std::numeric_limits<int>::max();
+	int max = 0;
+	int avg = 0;
 	while (window.isOpen()) {
 		sf::Event event;
 		int x,y;
@@ -249,20 +272,49 @@ int main()
 
 				my = window.getSize().y - my;
 			}
+			if (event.type == sf::Event::KeyPressed) {
+				if (event.key.code == sf::Keyboard::S)
+					zz += delto;
+				if (event.key.code == sf::Keyboard::W)
+					zz -= delto;
+				if (event.key.code == sf::Keyboard::Q)
+					yy += delto;
+				if (event.key.code == sf::Keyboard::Z)
+					yy -= delto;
+				if (event.key.code == sf::Keyboard::D)
+					xx += delto;
+				if (event.key.code == sf::Keyboard::A)
+					xx -= delto;
+				if (event.key.code == sf::Keyboard::R)
+					delto += 0.5;
+				if (event.key.code == sf::Keyboard::T)
+					delto -= 0.5;
+				std::cout << xx << ' ' << yy << ' ' << zz << ' ' << delto << '\n';
+			}
 		}
-
 		++ctr;
 		auto now = steady_clock::now();
 		if ((now - point) >= seconds{1}) {
+			duration<double> immed = now - point;
+			duration<double> total = now - start;
 			point = now;
-			duration<double> dur = now - start;
-			window.setTitle( "FPS: " + to_string(int(ctr / dur.count())) );
+
+			avg = int(ctr / total.count());
+			int cur = int((ctr - prev) / immed.count());
+			if (cur < min)
+				min = cur;
+			if (cur > max)
+				max = cur;
+			window.setTitle( "FPS: " + to_string(avg) + "avg " + to_string(cur) + "cur " + to_string(max) + "max " + to_string(min) + "min");
+			prev  = ctr;
 		}
 
 		render();
 
 		window.display();
 	}
+
+	std::cout << "FPS (min/max/avg): " << min << '/' << max << '/' << avg << '\n';
 }
 } // namespace aw
 
