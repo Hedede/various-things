@@ -16,11 +16,12 @@ void main()
 	vec4 color3 = mix(color1, color2, factor);
 
 	float z = outDepth;
-	float dr1 = 1 + 10; // znear + zfar
-	float dr2 = 1 - 10; // znear - zfar
+	float dr1 = 1 + 50;
+	float dr2 = 1 - 50;
 	float d1 = (2.0 * z - dr1) / (dr2);
 	float d = (d1 * 0.5) + 0.5;
 
 	outputColor = mix(theColor, color3, sin(time));
 	outputColor.xyz *= d;
+	outputColor.xyz = clamp(outputColor.xyz, 0.1, 1.0);
 }
