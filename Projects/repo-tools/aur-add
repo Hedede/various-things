@@ -44,6 +44,7 @@ fetch_pkg()
 	local pkgurl="${aur_git}/snapshot/${pkgname}.tar.gz"
 
 	pushd "$build_dir"
+	print_nice 'bB' "Fetching tarball ..."
 	fetch "${pkgname}.tar.gz" "$pkgurl"
 	popd
 }
@@ -53,6 +54,7 @@ extract_pkg()
 	local pkgname=$1
 
 	pushd "$build_dir"
+	print_nice 'bB' "Extracting tarball ..."
 	tar -xvf "${pkgname}.tar.gz"  || return 1
 	popd
 }
@@ -95,7 +97,9 @@ build_package()
 	local pkgname=$1
 
 	pushd "${build_dir}/${pkgname}"
+	print_nice 'bB' "Building ${pkgname} ..."
 	makepkg -sf --sign || return 1
+
 
 	popd
 }
@@ -124,6 +128,8 @@ add_to_repo()
 	
 	local exists=$(check_existance "$pkgname")
 	
+	print_nice 'bB' "Adding ${pkgname} into local repository ..."
+
 	[[ $exists = true ]] && backup_old "$pkgname"
 
 	local filename="${pkgname}-${vers}-${arch}" #.pkg.tar.xz
@@ -141,25 +147,25 @@ add_to_repo()
 	fi
 }
 
-get_pkg()
+make_pkg()
 {
 	local pkg=$1
 
-	print_nice 'bB' "Fetching tarball ..."
-	fetch_pkg		$1		|| exit 1
-	print_nice 'bB' "Extracting tarball ..."
-	extract_pkg		$1		|| exit 1
+	fetch_pkg	$1	|| exit 1
+	extract_pkg	$1	|| exit 1
 
 	# Overwrite PKGBUILD with one reviewed by user
 	[[ -e $1 ]] && mv -f "${tmpdir}/$1" "${build_dir}/$1/PKGBUILD"
 
 	#print_nice 'bB' "Checking dependencies ..."
 	check_deps
+	build_package	$1	|| exit 1
+}
 
-	print_nice 'bB' "Building ${pkg} ..."
-	build_package	      	$1		|| exit 1
-	print_nice 'bB' "Adding ${pkg} into local repository ..."
-	add_to_repo		$1		|| exit 1
+get_pkg()
+{
+	( make_pkg $1 ) || return 1
+	add_to_repo $1  || return 1
 }
 
 remove_pkg()
@@ -180,7 +186,7 @@ add_pkg()
 	# pkg_name=$(pkgbuild_get n "$1" "$1")
 	# pkg_base=$(pkgbuild_get b "$1" "$1")
 
-	get_pkg $1
+	get_pkg $1 || exit 1
 }
 
 update_queue_pkg()
@@ -195,9 +201,27 @@ update_run()
 {
 	[[ ${#update_queue[@]} -eq 0 ]] && print_nice bG 'Nothing to do' && exit 1
 
+	local failed=()
 	for pkg in ${update_queue[@]}
 	do
-		get_pkg $pkg $repo
+		get_pkg $pkg $repo || failed+=("$pkg")
+	done
+
+	[[ ${#failed[@]} -ne 0 ]] && print_nice 'bR' 'Failed to build:'
+	for pkg in ${failed[@]}
+	do
+		print_nice 'b' "$pkg"
+	done
+}
+
+print_updates()
+{
+	local id=0
+	for pkg in ${pkglist[@]}
+	do
+		local pkgver=$(package-query -Af "%v" "$pkg")
+		print_nice 'bW' "$pkg " 'bR' "$pkgver " 'bG' "${pkglist_ver[$id]}"
+		let id++
 	done
 }
 
@@ -248,6 +272,9 @@ do
 	-A|--aur)
 		action='add'
 		;;
+	-u)
+		action='printver'
+		;;
 	-U|--update)
 		action='sync'
 		;;
@@ -280,6 +307,9 @@ case $action in
 		;;
 	'check')
 		check_existance $pkg
+		;;
+	'printver')
+		print_updates
 		;;
 	'sync')
 		update_repo
