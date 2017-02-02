@@ -27,7 +27,14 @@ tmpdir="/tmp/aur-add"
 carch="x86_64"
 
 pushd() { builtin pushd $1 > /dev/null; }
-popd()  { builtin popd $1 > /dev/null; }
+popd()  { builtin popd  $1 > /dev/null; }
+
+fetch()
+{
+	local code=$(curl -w '%{http_code}\n' -o "$1" "$2")
+
+	[[ $code = 200 ]] || return 1
+}
 
 fetch_pkg()
 {
@@ -37,7 +44,7 @@ fetch_pkg()
 	local pkgurl="${aur_git}/snapshot/${pkgname}.tar.gz"
 
 	pushd "$build_dir"
-	curl -o "${pkgname}.tar.gz" "$pkgurl"
+	fetch "${pkgname}.tar.gz" "$pkgurl"
 	popd
 }
 
@@ -59,7 +66,10 @@ verify_pkgbuild()
 
 	pushd "$tmpdir"
 
-	curl -o "$pkgname" "$pkgurl"
+	if ! fetch "${pkgname}.tar.gz" "$pkgurl"
+	then
+		print_nice bR "Package not found" && return 1
+	fi
 
 	[[ -z $EDITOR ]] && EDITOR=vi
 
