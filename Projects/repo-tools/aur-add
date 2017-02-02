@@ -98,8 +98,15 @@ build_package()
 
 	pushd "${build_dir}/${pkgname}"
 	print_nice 'bB' "Building ${pkgname} ..."
-	makepkg -sf --sign || return 1
+	makepkg -s --sign || return 1
 
+	popd
+}
+
+repackage()
+{
+	pushd "${build_dir}/${pkgname}"
+	makepkg --sign || return 1
 
 	popd
 }
