@@ -68,7 +68,7 @@ verify_pkgbuild()
 
 	pushd "$tmpdir"
 
-	if ! fetch "${pkgname}.tar.gz" "$pkgurl"
+	if ! fetch "${pkgname}" "$pkgurl"
 	then
 		print_nice bR "Package not found" && return 1
 	fi
@@ -98,7 +98,8 @@ build_package()
 
 	pushd "${build_dir}/${pkgname}"
 	print_nice 'bB' "Building ${pkgname} ..."
-	makepkg -s --sign || return 1
+
+	makepkg -sf --sign || return 1
 
 	popd
 }
@@ -243,7 +244,7 @@ update_repo()
 		local pkgver=$(package-query -Af "%v" "$pkg")
 		print_nice 'bR' "$pkgver"
 		print_nice 'bG' "${pkglist_ver[$id]}"
-		if ! [[ "$pkgver" == "${pkglist_ver[$id]}" ]]
+		if vgt "$pkgver" "${pkglist_ver[$id]}"
 		then
 			print_nice 'bB' "Updating ${pkg}..."
 			update_queue_pkg ${pkg}

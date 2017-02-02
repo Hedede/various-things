@@ -24,7 +24,13 @@ source_pkgbuild()
 
 getver_()
 {
-	echo "$pkgver-$pkgrel"
+	local ver="$pkgver-$pkgrel"
+	if [[ -z $epoch ]]
+	then
+		echo "$ver"
+	else
+		echo "$epoch:$ver"
+	fi
 }
 
 getbase_()

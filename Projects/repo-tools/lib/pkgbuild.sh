@@ -20,3 +20,12 @@ pkgbuild_get()
 {
 	. $libpath/pkgbuild_get.sh $@
 }
+
+vgt()
+{
+	# TODO: compare epoch and pkgrel properly
+	# I've accidentally overwriten my beautifully hacky versiion omparison function :(
+	local r=$(printf "$1\n$2\n" | sort -V | tail -1)
+	[[ "$1" = "$2" ]] && return 1
+	[[ "$r" = "$1" ]] || return 1
+}
