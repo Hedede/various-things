@@ -28,6 +28,8 @@ struct program_handle {
 	operator GLuint() { return value; }
 };
 optional<program> test_program;
+uniform_location perspective_location;
+uniform_location transform_location;
 uniform_location screen_location;
 uniform_location time_location;
 uniform_location period_location;
@@ -56,6 +58,10 @@ void initialize_program()
 	time_location   = program.uniform("time");
 	period_location = program.uniform("period");
 	campos_location = program.uniform("camera");
+	perspective_location = program.uniform("perspective");
+	transform_location   = program.uniform("transform");
+
+	assert(transform_location != gl3::invalid_uniform);
 
 	gl::use_program( handle(program) );
 
@@ -140,7 +146,7 @@ void reshape(int x, int y)
 	gl::use_program( handle(program) );
 	program[screen_location] = vec2{ float(x), float(y) };
 	cam.set_aspect_ratio( float(x) / float(y) );
-	program["perspective"] = cam.projection_matrix();
+	program[perspective_location] = cam.projection_matrix();
 	gl::use_program( 0 );
 }
 
@@ -170,7 +176,9 @@ void render()
 	auto now = steady_clock::now();
 	duration<double> elapsed = now - begin;
 
+
 	clear();
+
 
 	auto& program = *test_program;
 	gl::use_program( handle(program) );
@@ -193,8 +201,8 @@ void render()
 	offset.get(2,3) = zz;
 	offset.get(1,3) = yy;
 	offset.get(0,3) = xx;
-	program["transform"] = offset;
-/*/
+	program[transform_location] = offset;
+//*/
 	for (auto obj : butruck.model->objects)
 		gl::draw_elements_base_vertex(GL_TRIANGLES, obj.num_elements, GL_UNSIGNED_SHORT, 0, obj.offset);
 
@@ -208,7 +216,7 @@ void render()
 		offset.get(2,3) = zz - 5*iz;
 		offset.get(1,3) = yy + iy;
 		offset.get(0,3) = xx + ix;
-		program["transform"] = offset;
+		program[transform_location] = offset;
 		for (auto obj : butruck.model->objects)
 			gl::draw_elements_base_vertex(GL_TRIANGLES, obj.num_elements, GL_UNSIGNED_SHORT, 0, obj.offset);
 	}/**/
