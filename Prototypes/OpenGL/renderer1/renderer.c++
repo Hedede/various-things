@@ -41,7 +41,7 @@ void initialize_program()
 {
 	std::vector<shader> shaderList;
 
-	auto vsh = load_shader( gl::shader_type::vertex,   "vert5.glsl" );
+	auto vsh = load_shader( gl::shader_type::vertex,   "vert6.glsl" );
 	auto fsh = load_shader( gl::shader_type::fragment, "frag1.glsl" );
 
 	if (vsh && fsh) {
@@ -140,14 +140,7 @@ void reshape(int x, int y)
 
 	hx = x;
 	hy = y;
-
-	auto& program = *test_program;
-
-	gl::use_program( handle(program) );
-	program[screen_location] = vec2{ float(x), float(y) };
 	cam.set_aspect_ratio( float(x) / float(y) );
-	program[perspective_location] = cam.projection_matrix();
-	gl::use_program( 0 );
 }
 
 void clear()
@@ -182,26 +175,35 @@ void render()
 
 	auto& program = *test_program;
 	gl::use_program( handle(program) );
+	program[screen_location] = vec2{ float(hx), float(hy) };
+
+	program[perspective_location] = cam.projection_matrix();
 	program[period_location] = period.count();
 	program[time_location]   = elapsed.count();
 
 
-	vec2 cam {
-		(2.0f*mx) / hx - 1,
-		(2.0f*my) / hy - 1
-	};
+	float horiz = ((mx - (hx/2.0f)) / hx) * 2.0f;
+	float vert  = ((my - (hy/2.0f)) / hx) * 2.0f;
+	auto pitch = math::pitch_matrix( degrees<float>(90) * vert );
+	auto yaw   = math::yaw_matrix( degrees<float>(180)  * horiz );
 
-	program[campos_location] = cam;
+	mat4 cam = math::identity_matrix<float,4>;
+	cam.get(2,3) = zz;
+	cam.get(1,3) = yy;
+	cam.get(0,3) = xx;
 
+	mat4 rot = math::identity_matrix<float,4>;;
+	rot = pitch * yaw;
 
-	auto offset = math::identity_matrix<float,4>;
+	program[campos_location] = cam * rot;
 
 	gl::bind_vertex_array(butruck.model->vao);
+
+	auto offset = math::identity_matrix<float,4>;
 	offset = math::yaw_matrix( degrees<float>( 180.0f ) );
-	offset.get(2,3) = zz;
-	offset.get(1,3) = yy;
-	offset.get(0,3) = xx;
-	program[transform_location] = offset;
+
+
+	//program[transform_location] = offset;
 //*/
 	for (auto obj : butruck.model->objects)
 		gl::draw_elements_base_vertex(GL_TRIANGLES, obj.num_elements, GL_UNSIGNED_SHORT, 0, obj.offset);
@@ -213,9 +215,9 @@ void render()
 	for (auto iy = -5; iy < 10; iy+=5)
 	for (auto iz = 0; iz<100;++iz)
 	{
-		offset.get(2,3) = zz - 5*iz;
-		offset.get(1,3) = yy + iy;
-		offset.get(0,3) = xx + ix;
+		offset.get(2,3) = 5*iz;
+		offset.get(1,3) = iy;
+		offset.get(0,3) = ix;
 		program[transform_location] = offset;
 		for (auto obj : butruck.model->objects)
 			gl::draw_elements_base_vertex(GL_TRIANGLES, obj.num_elements, GL_UNSIGNED_SHORT, 0, obj.offset);
@@ -282,17 +284,17 @@ int main()
 			}
 			if (event.type == sf::Event::KeyPressed) {
 				if (event.key.code == sf::Keyboard::S)
-					zz += delto;
-				if (event.key.code == sf::Keyboard::W)
 					zz -= delto;
+				if (event.key.code == sf::Keyboard::W)
+					zz += delto;
 				if (event.key.code == sf::Keyboard::Q)
-					yy += delto;
-				if (event.key.code == sf::Keyboard::Z)
 					yy -= delto;
+				if (event.key.code == sf::Keyboard::Z)
+					yy += delto;
 				if (event.key.code == sf::Keyboard::D)
-					xx += delto;
-				if (event.key.code == sf::Keyboard::A)
 					xx -= delto;
+				if (event.key.code == sf::Keyboard::A)
+					xx += delto;
 				if (event.key.code == sf::Keyboard::R)
 					delto += 0.5;
 				if (event.key.code == sf::Keyboard::T)
