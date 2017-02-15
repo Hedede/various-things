@@ -19,7 +19,12 @@
 #include <aw/graphics/gl/camera.h>
 #include <aw/fileformat/obj/loader.h>
 #include <aw/io/input_file_stream.h>
+#include <aw/utility/to_string/math/vector.h>
+#include <aw/utility/to_string/math/matrix.h>
 
+#include <SFML/Window.hpp>
+#include <SFML/Graphics.hpp>
+#include <aw/utility/to_string.h>
 namespace aw::gl3 {
 using namespace sv_literals;
 
@@ -61,8 +66,6 @@ void initialize_program()
 	perspective_location = program.uniform("perspective");
 	transform_location   = program.uniform("transform");
 
-	assert(transform_location != gl3::invalid_uniform);
-
 	gl::use_program( handle(program) );
 
 	cam.set_near_z(1.0f);
@@ -81,7 +84,7 @@ struct {
 
 	void load()
 	{
-		io::input_file_stream file{ "butruck.obj" };
+		io::input_file_stream file{ "testworld.obj" };
 		auto data = obj::mesh::parse( file );
 
 		std::vector< float > verts;
@@ -145,7 +148,7 @@ void reshape(int x, int y)
 
 void clear()
 {
-	gl::clear_color( 0.0f, 0.0f, 0.0f, 0.0f );
+	gl::clear_color( 1.0f, 1.0f, 1.0f, 1.0f );
 	gl::clear_depth( 1.0f );
 	gl::clear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 }
@@ -160,14 +163,19 @@ void calc_positions()
 }
 
 float xx,yy,zz;
+mat4 camera_transform = math::identity_matrix<float,4>;
+vec3 campos {};
 
 void render()
 {
 	using namespace std::chrono;
 	static duration<double> period{1};
 	static auto begin = steady_clock::now();
+	static auto prev = begin;
 	auto now = steady_clock::now();
-	duration<double> elapsed = now - begin;
+	duration<double> elapsed   = now - begin;
+	duration<float> frame_time = now - prev;
+	prev = now;
 
 
 	clear();
@@ -187,30 +195,61 @@ void render()
 	auto pitch = math::pitch_matrix( degrees<float>(90) * vert );
 	auto yaw   = math::yaw_matrix( degrees<float>(180)  * horiz );
 
-	mat4 cam = math::identity_matrix<float,4>;
-	cam.get(2,3) = zz;
-	cam.get(1,3) = yy;
-	cam.get(0,3) = xx;
-
-	mat4 rot = math::identity_matrix<float,4>;;
+	mat4 rot = math::identity_matrix<float,4>;
 	rot = pitch * yaw;
 
-	program[campos_location] = rot * cam;
+	struct {
+		bool d = sf::Keyboard::isKeyPressed(sf::Keyboard::D);
+		bool a = sf::Keyboard::isKeyPressed(sf::Keyboard::A);
+		bool q = sf::Keyboard::isKeyPressed(sf::Keyboard::Q);
+		bool z = sf::Keyboard::isKeyPressed(sf::Keyboard::Z);
+		bool w = sf::Keyboard::isKeyPressed(sf::Keyboard::W);
+		bool s = sf::Keyboard::isKeyPressed(sf::Keyboard::S);
+		bool S = sf::Keyboard::isKeyPressed(sf::Keyboard::LShift);
+		bool C = sf::Keyboard::isKeyPressed(sf::Keyboard::LControl);
+	} keys;
+	float S = 1.0f;
+	if (keys.S) S *= 10.0f;
+	if (keys.C) S *= 100.0f;
+	vec4 movement{
+		S * (keys.a - keys.d),
+		S * (keys.z - keys.q),
+		S * (keys.w - keys.s),
+		0
+	};
+	auto fvec = float(frame_time.count()) * movement * rot;
+
+	static size_t frame_ctr = 0;
+	std::cout << "frame: " << frame_ctr++ << '\n';
+	std::cout << to_string(fvec) << '\n';
+	std::cout << 90 * vert << ' ' << 180 * horiz << '\n';
+
+	auto& forward = camera_transform;
+	forward.get(0,3) += fvec[0];
+	forward.get(1,3) += fvec[1];
+	forward.get(2,3) += fvec[2];
+
+	program[campos_location] = rot * forward;
 
 	gl::bind_vertex_array(butruck.model->vao);
 
 	auto offset = math::identity_matrix<float,4>;
 	offset = math::yaw_matrix( degrees<float>( 180.0f ) );
 
-
-	//program[transform_location] = offset;
-/*/
-	for (auto obj : butruck.model->objects)
-		gl::draw_elements_base_vertex(GL_TRIANGLES, obj.num_elements, GL_UNSIGNED_SHORT, 0, obj.offset);
-
-/*/	auto ix = 0;
+#define AMUSE
+#ifdef AMUSE
+	auto ix = 0;
 	auto iy = 0;
 	auto iz = 0;
+
+	offset.get(2,3) = iz;
+	offset.get(1,3) = iy;
+	offset.get(0,3) = ix;
+	program[transform_location] = offset;
+
+	for (auto obj : butruck.model->objects)
+		gl::draw_elements_base_vertex(GL_TRIANGLES, obj.num_elements, GL_UNSIGNED_SHORT, 0, obj.offset);
+#else
 	for (auto ix = -5; ix < 10; ix+=5)
 	for (auto iy = -5; iy < 10; iy+=5)
 	for (auto iz = 0; iz<100;++iz)
@@ -221,16 +260,14 @@ void render()
 		program[transform_location] = offset;
 		for (auto obj : butruck.model->objects)
 			gl::draw_elements_base_vertex(GL_TRIANGLES, obj.num_elements, GL_UNSIGNED_SHORT, 0, obj.offset);
-	}/**/
-
+	}
+#endif
+	
 	gl::use_program( 0 );
 }
 
 } // namespace aw::gl3
 
-#include <SFML/Window.hpp>
-#include <SFML/Graphics.hpp>
-#include <aw/utility/to_string.h>
 namespace aw {
 int main()
 {
@@ -282,10 +319,10 @@ int main()
 
 				my = window.getSize().y - my;
 			}
-			if (event.type == sf::Event::KeyPressed) {
-				if (event.key.code == sf::Keyboard::S)
+			/*if (event.type == sf::Event::KeyPressed) {
+				if (event.key.code == sf::Keyboard::U)
 					zz -= delto;
-				if (event.key.code == sf::Keyboard::W)
+				if (event.key.code == sf::Keyboard::J)
 					zz += delto;
 				if (event.key.code == sf::Keyboard::Q)
 					yy -= delto;
@@ -300,7 +337,7 @@ int main()
 				if (event.key.code == sf::Keyboard::T)
 					delto -= 0.5;
 				std::cout << xx << ' ' << yy << ' ' << zz << ' ' << delto << '\n';
-			}
+			}*/
 		}
 		++ctr;
 		auto now = steady_clock::now();
