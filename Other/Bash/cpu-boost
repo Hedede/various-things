@@ -1,0 +1,15 @@
+#!/usr/bin/bash
+
+case $1 in
+	on|1)
+		val=1
+		;;
+	off|0)
+		val=0
+		;;
+	*)
+		exit 1
+		;;
+esac
+
+echo $val > /sys/devices/system/cpu/cpufreq/boost
