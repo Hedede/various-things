@@ -6,7 +6,6 @@
 #include <iostream>
 #include <algorithm>
 
-
 using namespace std::string_literals;
 
 /* helpers */
@@ -22,56 +21,22 @@ bool in(T const& t, T const& a, T const& b)
 	return t == a || t == b;
 }
 
-template<typename Criteria>
-bool validate(std::string const& str, Criteria criteria)
-{
-	return std::find_if_not(begin(str), end(str), criteria) == end(str);
-}
-
-bool validate_domain(std::string const& url)
-{
-	auto criteria = [] (char c) {
-		return std::isalnum(c) || ".-"s.find(c) != std::string::npos;
-	};
-	return validate(url, criteria);
-}
+auto valid_domain_char = [] (char c) {
+	return std::isalnum(c) || ".-"s.find(c) != std::string::npos;
+};
 
 auto valid_path_char = [] (char c) {
-	return std::isalnum(c)  || ".,/+_"s.find(c) != std::string::npos;
+	return std::isalnum(c) || ".,/+_"s.find(c) != std::string::npos;
 };
-bool validate_path(std::string const& url)
-{
-	return validate(url, valid_path_char);
-}
 
 // this is an one-off thing, globals will do
 namespace {
-int total_urls = 0;
-struct domain {
-	std::set<std::string> paths;
-	int uses = 0;
-};
-std::map<std::string, domain> urls;
+int total_urls;
+std::map<std::string, int> domains;
+std::map<std::string, int> paths;
 }
 
-/* actual parser */
 
-void parse_url(std::string const& str)
-{
-	auto pos = str.find('/');
-	auto domain = str.substr(0, pos);
-	if (!validate_domain(domain))
-		return;
-	std::string path{"/"};
-	if (pos != str.npos) {
-		path = str.substr(pos);
-		if (!validate_path(path))
-			return;
-	}
-	urls[domain].paths.insert(path);
-	++urls[domain].uses;
-	++total_urls;
-}
 
 template<typename Func>
 std::string::size_type find_if_not(std::string const& str, Func condition, size_t pos)
@@ -83,25 +48,72 @@ std::string::size_type find_if_not(std::string const& str, Func condition, size_
 	return it - begin(str);
 }
 
+size_t find_protocol(std::string const& line, size_t start = 0)
+{
+	constexpr char http[] = "http";
+	constexpr char http_suf[] = "://";
+	constexpr char https_suf[] = "s://";
+
+	auto pos = line.find(http, start);
+	while (pos != line.npos) {
+		pos += sizeof(http)-1;
+
+		if (line.substr( pos, sizeof(http_suf)-1 ) == http_suf )
+			return pos + sizeof(http_suf)-1;
+		if (line.substr( pos, sizeof(https_suf)-1 ) == https_suf )
+			return pos + sizeof(https_suf)-1;
+
+		pos = line.find(http, pos);
+	}
+	return pos;
+}
+
+size_t parse_url(std::string const& line, size_t pos)
+{
+	size_t domain_end = find_if_not(line, valid_domain_char, pos);
+
+	if (pos == domain_end)
+		return pos;
+	++total_urls;
+
+	auto domain = line.substr(pos, domain_end - pos);
+	++domains[domain];
+
+	if (domain_end == line.npos || line[domain_end] != '/') {
+		++paths["/"];
+		return domain_end;
+	}
+
+	size_t path_end = find_if_not(line, valid_path_char, domain_end);
+	auto path = line.substr(domain_end, path_end - domain_end);
+	++paths[path];
+
+	return path_end;
+}
+
 void parse_line(std::string const& line)
 {
-	auto pos = line.find("http");
-	auto pos2 = line.find("//", pos);
+	auto pos = find_protocol(line);
+	while (pos < line.size()) {
+		auto pos2 = parse_url(line, pos);
+		pos = find_protocol(line, pos2);
+	}
+}
 
-	while (pos != line.npos && pos2 != line.npos) {
-		if (!in(line.substr(pos, pos2-pos), "http:"s, "https:"s)) {
-			pos = pos2;
-			continue;
-		}
+void print_result(std::ostream& out, std::map<std::string, int> const& map, int max)
+{
+	std::vector<std::pair<std::string, int>> vec{begin(map), end(map)};
+	auto compare = [] (auto const& a, auto const& b) {
+		return a.second > b.second;
+	};
 
-		pos2 += 2;
+	std::stable_sort(begin(vec), end(vec), compare);
 
-		pos = find_if_not(line, valid_path_char, pos2);
-
-		parse_url(line.substr(pos2,pos-pos2));
-
-		pos = line.find("http", pos2);
-		pos2 = line.find("//", pos);
+	int i = 0;
+	for (auto const& str : vec) {
+		if (i++ > max)
+			break;
+		out << '\t' << str.second << ' ' << str.first << '\n';
 	}
 }
 
@@ -111,42 +123,11 @@ void parse(int n, std::istream& in, std::ostream& out)
 	while (std::getline(in, line))
 		parse_line(line);
 
-	std::vector<std::pair<int, std::string>> domains;
-	std::map<std::string, int> paths;
-	for (auto& p : urls) {
-		domains.emplace_back(p.second.uses, p.first);
-		for (auto& path : p.second.paths)
-			++paths[path];
-	}
-	auto compare = [] (auto pair1, auto pair2) {
-		return pair1.first >  pair2.first ||
-		       pair1.first == pair2.first && pair1.second < pair2.second;
-	};
-	std::sort(begin(domains), end(domains), compare);
-
 	out << "total urls " << total_urls << ", domains " << domains.size() << ", paths " << paths.size() << '\n';
-	out << "top domains\n";
-
-	int i = 0;
-	for (auto domain : domains) {
-		if (i++ > n)
-			break;
-		out << domain.first << ' ' << domain.second << '\n';
-	}
-
-	out << "top paths\n";
-	std::vector<std::pair<int, std::string>> paths_vec;
-	for (auto& p : paths)
-		paths_vec.emplace_back(p.second, p.first);
-
-	std::sort(begin(paths_vec), end(paths_vec), compare);
-
-	i = 0;
-	for (auto path : paths_vec) {
-		if (i++ > n)
-			break;
-		out << path.first << ' ' << path.second << '\n';
-	}
+	out << "\ntop domains\n";
+	print_result( out, domains, n );
+	out << "\ntop paths\n";
+	print_result( out, paths, n );
 }
 
 
