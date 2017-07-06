@@ -1,4 +1,4 @@
-#include <aw/graphics/gl/gl_ext33.h>
+#include <aw/graphics/gl/awgl/api.h>
 #include <aw/types/string_view.h>
 #include <aw/utility/string/split.h>
 #include <aw/math/matrix3.h>
@@ -7,6 +7,7 @@
 #include <aw/math/angle.h>
 
 #include <iostream>
+#include <fstream>
 #include <algorithm>
 #include <vector>
 #include <chrono>
@@ -16,8 +17,8 @@
 #include <aw/graphics/gl/model.h>
 
 #include <aw/graphics/gl/shader_file.h>
+#include <aw/graphics/gl/utility/model/obj.h>
 #include <aw/graphics/gl/camera.h>
-#include <aw/fileformat/obj/loader.h>
 #include <aw/io/input_file_stream.h>
 #include <aw/utility/to_string/math/vector.h>
 #include <aw/utility/to_string/math/matrix.h>
@@ -26,104 +27,233 @@
 #include <SFML/Graphics.hpp>
 #include <aw/utility/to_string.h>
 namespace aw::gl3 {
-using namespace sv_literals;
+using namespace std::string_view_literals;
 
-struct program_handle {
-	GLuint value;
-	operator GLuint() { return value; }
+struct program_common_locations {
+	uniform_location perspective;
+	uniform_location transform;
+	uniform_location screen;
+	uniform_location time;
+	uniform_location period;
+	uniform_location campos;
 };
-optional<program> test_program;
-uniform_location perspective_location;
-uniform_location transform_location;
-uniform_location screen_location;
-uniform_location time_location;
-uniform_location period_location;
-uniform_location campos_location;
 
-camera cam;
+struct program_manager {
+	std::vector<optional<program>> programs;
+	std::vector<program_common_locations> common_locations;
+	std::vector<size_t> freelist;
+	std::vector<std::vector<size_t>> materials;
 
-void initialize_program()
-{
-	std::vector<shader> shaderList;
-
-	auto vsh = load_shader( gl::shader_type::vertex,   "vert6.glsl" );
-	auto fsh = load_shader( gl::shader_type::fragment, "frag1.glsl" );
-
-	if (vsh && fsh) {
-		shaderList.push_back(std::move(*vsh));
-		shaderList.push_back(std::move(*fsh));
+	program* get_program( size_t idx )
+	{
+		if (idx < programs.size() && programs[idx])
+			return &*programs[idx];
+		return nullptr;
 	}
 
-	test_program = program();
-	test_program->link( shaderList );
+	bool remove_program( size_t idx )
+	{
+	}
 
-	auto& program = *test_program;
+	void insert( program&& prg )
+	{
+		size_t idx = 0;
+		if (freelist.empty()) {
+			idx = programs.size();
+			programs.emplace_back(prg);
+			common_locations.emplace_back();
+			materials.emplace_back();
+		} else {
+			idx = freelist.back();
+			programs[idx] = std::forward<program>(prg);
+			materials[idx].clear();
+		}
 
-	screen_location = program.uniform("screen");
-	time_location   = program.uniform("time");
-	period_location = program.uniform("period");
-	campos_location = program.uniform("camera");
-	perspective_location = program.uniform("perspective");
-	transform_location   = program.uniform("transform");
+		auto& prg = *programs[idx];
+		auto& loc = common_locations[idx];
 
-	gl::use_program( handle(program) );
+		loc.screen      = prg.uniform("screen");
+		loc.time        = prg.uniform("time");
+		loc.period      = prg.uniform("period");
+		loc.campos      = prg.uniform("camera");
+		loc.perspective = prg.uniform("perspective");
+		loc.transform   = prg.uniform("transform");
+	}
 
-	cam.set_near_z(1.0f);
-	cam.set_far_z(10000.0f);
+	void load_program( string_view v, string_view f )
+	{
+		std::vector<shader> shaderList;
+
+		auto vsh = load_shader( gl::shader_type::vertex,   v );
+		auto fsh = load_shader( gl::shader_type::fragment, f );
+
+		if (vsh && fsh) {
+			shaderList.push_back(std::move(*vsh));
+			shaderList.push_back(std::move(*fsh));
+		}
+
+		gl3::program program;
+		bool linked = program.link( shaderList );
+		if (!linked)
+			return;
+
+		insert( std::move(program) );
+	}
+};
+
+struct active_material {
+	size_t index;
+	std::vector<size_t> renderables;
+};
+struct active_program {
+	size_t index;
+	std::vector<active_material> materials;
+};
+
+
+struct pipeline {
+	std::vector<active_program> programs;
+
+	void set_common_uniforms( program_common_locations const& loc )
+	{
+		program[loc.screen_location] = vec2{ float(hx), float(hy) };
+		program[loc.perspective_location] = cam.projection_matrix();
+		program[loc.period_location] = period.count();
+		program[loc.time_location]   = elapsed.count();
+		program[loc.campos_location] = campos;
+
+		program["light_dir"] = vec3{ 0.577, 0.577, 0.577 };
+		program["light_intensity"] = vec4{ 1.0, 1.0, 1.0, 1.0 };
+	}
+
+	void render()
+	{
+		for (auto& prg : programs) {
+			auto program = prepo.get_program(prg.index);
+			gl::use_program( program_handle{*program} );
+			set_common_uniforms( prepo.get_locations(prg.index) );
+			for (auto& mtl : prg.materials) {
+				auto material = mrepo.get_material(mtl.index);
+				apply_parameters( *material );
+				for (auto& rnd : mtl.renderables)
+					objects[rnd].render(mtl);
+			}
+		}
+		for (auto& mtl : materials) {
+			auto& program = mtl.program;
+			gl::use_program( program_handle{program} );
+			for (auto& obj : mtl.objects)
+				objects[obj].render(mtl);
+
+		}
+	}
+};
+
+
+struct material {
+	// TODO: this isn't a mockup of an actual material
+	// this will be some kind of wrapper over program,
+	// since it makes sense that common uniforms belong
+	// to a program, not to material
+	// TODO: some of them, like screen and time will be
+	// replaced by UBOs
+	gl3::program program;
+	uniform_location perspective_location;
+	uniform_location transform_location;
+	uniform_location screen_location;
+	uniform_location time_location;
+	uniform_location period_location;
+	uniform_location campos_location;
+
+	//TODO: I wanted to place this outside of class,
+	//but right now that is not very convenient
+	std::vector<size_t> objects;
+
+	void render();
+};
+std::vector<material> materials;
+
+void load_program( string_view v, string_view f)
+{
+}
+
+
+
+std::vector<model> models;
+void load_model( string_view filename )
+{
+	io::input_file_stream file{ filename };
+	auto data = obj::mesh::parse( file );
+	models.emplace_back( model_from_obj(data) );
+}
+
+struct object {
+	size_t model_id;
+	mat4   pos;
+
+	void render(material& mtl)
+	{
+		auto& model = models[model_id];
+
+		gl::bind_vertex_array(model.vao);
+		mtl.program[mtl.transform_location] = pos;
+
+		for (auto obj : model.objects)
+			gl::draw_elements_base_vertex(GL_TRIANGLES, obj.num_elements, GL_UNSIGNED_INT, 0, obj.offset);
+	}
+};
+std::vector<object> objects;
+camera cam;
+
+void initialize_scene()
+{
+	std::fstream file{ "scene.txt" };
+
+	cam.set_near_z(0.5f);
+	cam.set_far_z(5000.0f);
 
 	cam.set_aspect_ratio(1.0f);
 	cam.set_fov( degrees<float>{90} );
 
-	program["perspective"] = cam.projection_matrix();
-
-	gl::use_program( 0 );
-}
-
-struct {
-	optional<gl3::model> model;
-
-	void load()
-	{
-		io::input_file_stream file{ "testworld.obj" };
-		auto data = obj::mesh::parse( file );
-
-		std::vector< float > verts;
-		std::vector< u16 > indices;
-
-		for (auto v : data.verts) {
-			verts.push_back( v[0] );
-			verts.push_back( v[1] );
-			verts.push_back( v[2] );
-		}
-
-		size_t color_offset = verts.size()*sizeof(float);
-
-		for (auto v : data.verts) {
-			verts.push_back( 0.5 );
-			verts.push_back( 0.5 );
-			verts.push_back( 0.5 );
-			verts.push_back( 1.0 );
-		}
-
-		for (auto t : data.faces) {
-			indices.push_back( t.verts[0].index );
-			indices.push_back( t.verts[1].index );
-			indices.push_back( t.verts[2].index );
-		}
-
-		vert_data vd{ verts, 0, color_offset };
-		mesh_data md{ indices };
-
-		model = std::move(gl3::model( vd, md ));
+	int count = 0;
+	file >> count;
+	while (count --> 0) {
+		std::string vsh, fsh;
+		file >> vsh >> fsh;
+		load_program( vsh, fsh );
 	}
-} butruck;
 
+	file >> count;
+	while (count --> 0) {
+		std::string name;
+		file >> name;
+		load_model( name );
+	}
 
-void initialize_scene()
-{
-	butruck.load();
+	auto push_object = [] (object& obj, size_t mtl) {
+		materials[mtl].objects.push_back(objects.size());
+		objects.push_back(obj);
+	};
+	file >> count;
+	while (count --> 0) {
+		vec3 pos, rot;
+		int mat, mdl;
+		file >> mat >> mdl;
+		file >> pos[0] >> pos[1] >> pos[2];
+		file >> rot[0] >> rot[1] >> rot[2];
+		object o;
+		o.model_id = mdl;
+		o.pos = math::identity_matrix<float,4>;
+		auto deg = math::vector3d<degrees<float>>( rot );
+		o.pos = math::matrix_from_euler( deg );
+		o.pos.get(0,3) = pos[0];
+		o.pos.get(1,3) = pos[1];
+		o.pos.get(2,3) = pos[2];
+		push_object(o, mat);
+	}
 
 	gl::enable(GL_CULL_FACE);
+
 	gl::cull_face(GL_BACK);
 	gl::front_face(GL_CCW);
 
@@ -131,7 +261,16 @@ void initialize_scene()
 	gl::depth_mask(GL_TRUE);
 	gl::depth_func(GL_LEQUAL);
 	gl::depth_range(0.0f, 1.0f);
+
+	gl::clear_color( 1.0f, 1.0f, 1.0f, 1.0f );
+	gl::clear_depth( 1.0f );
+	gl::clear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 }
+
+struct viewport {
+
+	
+};
 
 int mx, my;
 int hx, hy;
@@ -148,8 +287,6 @@ void reshape(int x, int y)
 
 void clear()
 {
-	gl::clear_color( 1.0f, 1.0f, 1.0f, 1.0f );
-	gl::clear_depth( 1.0f );
 	gl::clear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 }
 
@@ -178,17 +315,6 @@ void render()
 	prev = now;
 
 
-	clear();
-
-
-	auto& program = *test_program;
-	gl::use_program( handle(program) );
-	program[screen_location] = vec2{ float(hx), float(hy) };
-
-	program[perspective_location] = cam.projection_matrix();
-	program[period_location] = period.count();
-	program[time_location]   = elapsed.count();
-
 
 	float horiz = (2.0f * mx) / hx - 1.0f;
 	float vert  = 1.0f - (2.0f * my) / hy;
@@ -199,71 +325,73 @@ void render()
 	rot = pitch * yaw;
 
 	struct {
+		bool num[10] = {
+			sf::Keyboard::isKeyPressed(sf::Keyboard::Num0),
+			sf::Keyboard::isKeyPressed(sf::Keyboard::Num1),
+			sf::Keyboard::isKeyPressed(sf::Keyboard::Num2),
+			sf::Keyboard::isKeyPressed(sf::Keyboard::Num3),
+			sf::Keyboard::isKeyPressed(sf::Keyboard::Num4),
+			sf::Keyboard::isKeyPressed(sf::Keyboard::Num5),
+			sf::Keyboard::isKeyPressed(sf::Keyboard::Num6),
+			sf::Keyboard::isKeyPressed(sf::Keyboard::Num7),
+			sf::Keyboard::isKeyPressed(sf::Keyboard::Num8),
+			sf::Keyboard::isKeyPressed(sf::Keyboard::Num9) 
+		};
+		bool j = sf::Keyboard::isKeyPressed(sf::Keyboard::D);
 		bool d = sf::Keyboard::isKeyPressed(sf::Keyboard::D);
 		bool a = sf::Keyboard::isKeyPressed(sf::Keyboard::A);
 		bool q = sf::Keyboard::isKeyPressed(sf::Keyboard::Q);
+		bool e = sf::Keyboard::isKeyPressed(sf::Keyboard::E);
 		bool z = sf::Keyboard::isKeyPressed(sf::Keyboard::Z);
+		bool c = sf::Keyboard::isKeyPressed(sf::Keyboard::C);
 		bool w = sf::Keyboard::isKeyPressed(sf::Keyboard::W);
 		bool s = sf::Keyboard::isKeyPressed(sf::Keyboard::S);
 		bool S = sf::Keyboard::isKeyPressed(sf::Keyboard::LShift);
+		bool A = sf::Keyboard::isKeyPressed(sf::Keyboard::LAlt);
 		bool C = sf::Keyboard::isKeyPressed(sf::Keyboard::LControl);
 	} keys;
-	float S = 1.0f;
+	float S = 10.0f;
 	if (keys.S) S *= 10.0f;
-	if (keys.C) S *= 100.0f;
+	if (keys.A) S *= 100.0f;
+	if (keys.C) S /= 10.0f;
 	vec4 movement{
 		S * (keys.a - keys.d),
-		S * (keys.z - keys.q),
+		S * (keys.z - keys.c),
 		S * (keys.w - keys.s),
 		0
 	};
-	auto fvec = float(frame_time.count()) * movement * rot;
+	radians<float> ang { frame_time.count() * 5 * (keys.e - keys.q) };
+	auto fvec = frame_time.count() * movement * rot;
+
+	static degrees<float> fov { 90.0 };
+	auto rate = fov < degrees<float>{ 30 }  ? (fov.count()) :
+	            fov > degrees<float>{ 150 } ? (180 - fov.count()) :
+	            30;
+	if (keys.num[1]) fov -= rate*degrees<float>{ frame_time.count() };
+	if (keys.num[2]) fov += rate*degrees<float>{ frame_time.count() };
+
+	cam.set_fov( fov );
 
 	static size_t frame_ctr = 0;
-	std::cout << "frame: " << frame_ctr++ << '\n';
-	std::cout << to_string(fvec) << '\n';
-	std::cout << 90 * vert << ' ' << 180 * horiz << '\n';
+	//std::cout << "frame: " << frame_ctr++ << '\n';
+	//std::cout << to_string(fvec) << '\n';
+	//std::cout << 90 * vert << ' ' << 180 * horiz << '\n';
 
 	auto& forward = camera_transform;
+	auto rmat = math::identity_matrix<float,4>;
+	rmat = math::yaw_matrix(ang);
 	forward.get(0,3) += fvec[0];
 	forward.get(1,3) += fvec[1];
 	forward.get(2,3) += fvec[2];
+	forward = rmat * forward;
 
-	program[campos_location] = rot * forward;
 
-	gl::bind_vertex_array(butruck.model->vao);
+	auto campos = rot * forward;
 
-	auto offset = math::identity_matrix<float,4>;
-	offset = math::yaw_matrix( degrees<float>( 180.0f ) );
+	clear();
 
-#define AMUSE
-#ifdef AMUSE
-	auto ix = 0;
-	auto iy = 0;
-	auto iz = 0;
 
-	offset.get(2,3) = iz;
-	offset.get(1,3) = iy;
-	offset.get(0,3) = ix;
-	program[transform_location] = offset;
-
-	for (auto obj : butruck.model->objects)
-		gl::draw_elements_base_vertex(GL_TRIANGLES, obj.num_elements, GL_UNSIGNED_SHORT, 0, obj.offset);
-#else
-	for (auto ix = -5; ix < 10; ix+=5)
-	for (auto iy = -5; iy < 10; iy+=5)
-	for (auto iz = 0; iz<100;++iz)
-	{
-		offset.get(2,3) = 8*iz;
-		offset.get(1,3) = iy;
-		offset.get(0,3) = ix;
-		program[transform_location] = offset;
-		for (auto obj : butruck.model->objects)
-			gl::draw_elements_base_vertex(GL_TRIANGLES, obj.num_elements, GL_UNSIGNED_SHORT, 0, obj.offset);
-	}
-#endif
-	
-	gl::use_program( 0 );
+	gl::use_program( gl::no_program );
 }
 
 } // namespace aw::gl3
@@ -282,10 +410,9 @@ int main()
 
 	sf::Window window(sf::VideoMode(800, 600), "GL tut", sf::Style::Default, settings);
 
-	auto result = gl::sys::load_functions_3_3();
+	auto result = ::gl::sys::load_functions_3_3();
 	std::cout << "GL loaded, missing: " << result.num_missing() << '\n';
 
-	initialize_program();
 	initialize_scene();
 	reshape(800, 600);
 
@@ -319,7 +446,14 @@ int main()
 
 				my = window.getSize().y - my;
 			}
-			/*if (event.type == sf::Event::KeyPressed) {
+			if (event.type == sf::Event::KeyPressed) {
+				if (event.key.code == sf::Keyboard::P) {
+					auto& forward = camera_transform;
+					std::cout << -forward.get(0,3) << ", "
+					          << -forward.get(1,3) << ", "
+					          << -forward.get(2,3) << '\n';
+				}
+			 /*
 				if (event.key.code == sf::Keyboard::U)
 					zz -= delto;
 				if (event.key.code == sf::Keyboard::J)
@@ -337,7 +471,8 @@ int main()
 				if (event.key.code == sf::Keyboard::T)
 					delto -= 0.5;
 				std::cout << xx << ' ' << yy << ' ' << zz << ' ' << delto << '\n';
-			}*/
+			*/
+			}
 		}
 		++ctr;
 		auto now = steady_clock::now();
