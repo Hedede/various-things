@@ -3,14 +3,12 @@
 #include <string>
 #include <algorithm>
 #include <iostream>
-#include <aw/utility/algorithm.h>
+#include <aw/algorithm/common_prefix_length.h>
 
-struct Compare {
-	bool operator() (std::string const& a, std::string const& b) {
-		size_t const N = std::min(a.size(), b.size());
-		return a.substr(0,N) < b.substr(0, N);
-	}
-} compare;
+auto compare = [] (std::string const& a, std::string const& b) {
+	size_t const N = std::min(a.size(), b.size());
+	return a.substr(0,N) < b.substr(0, N);
+};
 
 int main()
 {

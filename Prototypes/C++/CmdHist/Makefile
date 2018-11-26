@@ -1,2 +1,2 @@
 build:
-	g++ -g CmdHist.cpp -I/home/awdev/awlib/include
+	g++ -std=c++17 -g CmdHist.cpp -I/home/awdev/awlib/include
