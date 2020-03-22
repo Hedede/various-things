@@ -83,7 +83,7 @@ struct delectr : countable{
 extern delectr d;
 
 #include <chrono>
-constexpr unsigned num_iter = 10000000;
+constexpr unsigned num_iter = 1000000000;
 using namespace std::chrono;
 
 double test_vfun(bool arg);

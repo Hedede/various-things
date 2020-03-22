@@ -1,5 +1,5 @@
 #include "header.h"
-double test_tpl(bool arg)
+double test_fun(bool arg)
 {
 	auto sta = steady_clock::now();
 	st_counter sct;
