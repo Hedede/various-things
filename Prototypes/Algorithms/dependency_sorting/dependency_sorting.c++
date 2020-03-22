@@ -12,7 +12,6 @@ struct type {
 	std::vector<type_id> dependants;
 };
 
-
 static std::atomic<type_id> counter = 0;
 
 template<typename T>
@@ -65,9 +64,12 @@ struct H{ static constexpr auto type_name = "H";};
 struct I{ static constexpr auto type_name = "I";};
 struct J{ static constexpr auto type_name = "J";};
 struct K{ static constexpr auto type_name = "K";};
+struct L{ static constexpr auto type_name = "L";};
+struct M{ static constexpr auto type_name = "M";};
 
 #include <aw/types/containers/queue.h>
 #include <iostream>
+#include <iomanip>
 
 int main()
 {
@@ -82,6 +84,8 @@ int main()
 	register_type<J, F, K>();
 	register_type<I, G, J>();
 	register_type<K, A, I>();
+	register_type<L, L, K, G, A>();
+	register_type<M, B, F, D, C, E, H>();
 
 
 	std::vector<type_id> output;
@@ -99,7 +103,8 @@ int main()
 	};
 
 	for (const auto& t : types) {
-		if (t.dependencies.size() == 0)
+		auto dependency_count = t.dependencies.size();
+		if (dependency_count == 0)
 			add_to_output(t);
 	}
 
@@ -132,4 +137,10 @@ int main()
 	for (const auto& tid : output)
 		std::cout << '(' << types[tid].name << ')';
 	std::cout << '\n';
+
+	type_id i = 0;
+	for (const auto& loaded : is_loaded)
+	{
+		std::cout << types[i++].name << ": " << std::boolalpha << loaded << '\n';
+	}
 }
