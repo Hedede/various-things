@@ -66,6 +66,10 @@ struct J{ static constexpr auto type_name = "J";};
 struct K{ static constexpr auto type_name = "K";};
 struct L{ static constexpr auto type_name = "L";};
 struct M{ static constexpr auto type_name = "M";};
+struct N{ static constexpr auto type_name = "N";};
+struct O{ static constexpr auto type_name = "O";};
+struct P{ static constexpr auto type_name = "P";};
+struct Q{ static constexpr auto type_name = "Q";};
 
 #include <aw/types/containers/queue.h>
 #include <iostream>
@@ -86,6 +90,10 @@ int main()
 	register_type<K, A, I>();
 	register_type<L, L, K, G, A>();
 	register_type<M, B, F, D, C, E, H>();
+	register_type<N, J, M, P>();
+	register_type<P, O>();
+	register_type<O, Q>();
+	register_type<Q, N>();
 
 
 	std::vector<type_id> output;
@@ -141,6 +149,40 @@ int main()
 	type_id i = 0;
 	for (const auto& loaded : is_loaded)
 	{
-		std::cout << types[i++].name << ": " << std::boolalpha << loaded << '\n';
+		auto& type = types[i++];
+		if (!loaded)
+		{
+			std::vector<type_id> stack;
+			stack.push_back(type.id);
+
+			while (!stack.empty()) {
+				bool deps_loaded = true;
+				for (const auto& t : types[stack.back()].dependencies)
+				{
+					if (!is_loaded[t])
+					{
+						deps_loaded = false;
+						auto pos = std::find(stack.rbegin(), stack.rend(), t);
+						if (pos == stack.rend())
+							stack.push_back(t);
+						else {
+							std::cout << "cycle: ";
+							while (stack.back() != t)
+							{
+								std::cout << types[stack.back()].name << " - ";
+								stack.pop_back();
+							}
+							std::cout << types[stack.back()].name << '\n';
+							stack.pop_back();
+						}
+					}
+				}
+				if (deps_loaded) {
+					is_loaded[stack.back()] = true;
+					stack.pop_back();
+				}
+			}
+			is_loaded[type.id] = true;
+		}
 	}
 }
