@@ -13,14 +13,10 @@ std::map<int,int> prec = {
 	{'/', 1},
 };
 
-std::string eval_expr(std::string_view s)
+std::string eval_expr(std::string_view s, std::map<std::string, int, std::less<>>& vars)
 {
 	std::vector<int> op_stack;
 	std::vector<int> data_stack;
-
-	std::map<std::string, int, std::less<>> vars = {
-		{ "test", 10 }
-	};
 
 	auto eval = [&] {
 		auto op = op_stack.back(); op_stack.pop_back();
@@ -101,12 +97,15 @@ std::string eval_expr(std::string_view s)
 			if (c == '{')
 			{
 				auto start = ++i;
-				while (i < s.size() && c != '}')
+				for (; i < s.size();)
 				{
-					c = s[i++];
+					c = s[i];
+					if (c == '}')
+						break;
+					++i;
 				}
 
-				auto x = s.substr(start, i - start - 1);
+				auto x = s.substr(start, i - start);
 
 				auto it = vars.find(x);
 				if (it != vars.end())
@@ -134,5 +133,10 @@ int main(int, char*  *argv)
 {
 	std::string_view s = argv[1];
 
-	std::cout << eval_expr(s);
+	std::map<std::string, int, std::less<>> vars = {
+		{ "a", 10 },
+		{ "b", 8 },
+	};
+
+	std::cout << eval_expr(s, vars);
 }
