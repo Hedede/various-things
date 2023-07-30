@@ -1,0 +1,2 @@
+file=$(mktemp)
+echo $file
