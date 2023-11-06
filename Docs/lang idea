@@ -1,0 +1,38 @@
+? if
+$ cur_char
+= store
+/ read until
++ read one
+> then
+< else
+. define var
+# define const
+
+. opt
+# shortopt	0
+# longopt	1
+# arg		2
+? $ == '-'
+>
+  +
+  ? $ == '-'
+  >
+    +
+    opt.type = longopt
+    opt.name = /' '
+  <
+    opt.type = shortopt
+    opt.name = $
+<
+  opt.type = arg
+  ? $ == '\''
+  >
+    +
+    opt.name = /'\''
+  < ? $ == '"'
+    +
+    opt.name = /'"'
+  <
+    opt.name = /' '
+
+  
