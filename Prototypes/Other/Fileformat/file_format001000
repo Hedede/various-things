@@ -1,0 +1,51 @@
+========================================== 
+	Hrengin file format Version 001000 
+========================================== 
+ 
+1. Data type tag 
+Every hrengin file begins with header. The first four (4) bytes of header are always indentifier corresponding to a given file type. 
+ 
+Known tags: 
+	HREN — hrengin data file 
+	HLVL — a game level 
+	AMAP — AWRTS map file 
+	HMRM — hrengin multi=resolution mesh 
+ 
+	 
+	------------------------------------ 
+	 
+2. Header 
+Header is different for each file format. 
+ 
+ 
+	------------------------------------ 
+		HREN	hrengin data file 
+	------------------------------------ 
+; any amount of spaces, tabs, CRs and LFs is equivalent
+; a comment 
+; typical header 
+HRENGIN 
+[ 
+ver|integer : 001000 
+filever|integer : 001000 
+timestamp|integer : 23494125 
+author|string : "USERNAME"
+format|format :	ASCII				;ASCII|BINARY 
+typeid|filetype : AMAP
+]:[ 
+	somechunk1 
+	[ 
+		size|integer  : 256 
+		typeid|chunktype : TRRR 
+		format|format : BINARY 
+	]:[)ª|å{… ž&×†ª.Ù¤+Â¼ZÐE©I@%‰®Œàu] 
+	somechunk2 
+	[ 
+		typeid|chunktype : BRRR 
+		format|format : TEXT 
+	] : [ 
+		variable1|array(byte) : 1/25/65/46/78 
+		variable2|array(string) : "yes"/"no"/"totally"/"may be"
+		variable3|blob = raw:Ô2´  ¶¶·°ÌÊNOÿ
+	] 
+] 
