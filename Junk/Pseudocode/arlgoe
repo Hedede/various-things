@@ -1,0 +1,150 @@
+
+
+
+something $var, other$(thing)thing, $func(a, b, c), $func()otherstuff
+^         ^
+find first $
+
+$var, other$(thing)thing, $func(a, b, c), $func()otherstuff
+ ^
+look at next character
+
+what is it?
+
+[0-9a-zA-Z_]
+search for first not matching char
+
+$var, other$(thing)thing, $func(a, b, c), $func()otherstuff
+    ^
+what is it?
+
+not (
+
+this is a simple var, look it up and append
+
+
+, other$(thing)thing, $func(a, b, c), $func()otherstuff
+^      ^
+find fisrst $
+
+$(thing)thing, $func(a, b, c), $func()otherstuff
+ ^
+look at next thing
+
+it's (
+
+search for matching )
+
+$(thing)thing, $func(a, b, c), $func()otherstuff
+ ^     ^
+stuff inside is name of the var, look it up, append
+
+thing, $func(a, 'b', c), $func()otherstuff
+^      ^
+again a-z stuff
+
+$func(a, 'b', c), $func()otherstuff
+     ^
+search for first notalnum,
+it's (
+meaning it's func
+find matching )
+
+$func(a, 'b', c), $func()otherstuff
+      ^        ^
+
+everything inside is args
+
+
+parsing args
+
+()
+     ^^
+empty — end
+
+(a, 'b', c)
+ ^ take first
+what is it? not ', search for ,
+
+(a, 'b', c)
+  ^
+append first arg to vec
+
+skip spaces
+
+('b', c)
+ ^
+take first, what is it?
+', search for matching '
+
+('b', c)
+   ^
+look ahead
+
+('b', c)
+    ^
+its ,
+append inside ' to vec
+
+$func('borked, 123)
+      ^           ^
+haven't found matching '
+don't exec func
+
+$func('borked)
+             ^
+same
+
+$func('borked'bulship, i)
+             ^       ^
+garbage between ' and ,
+dont exec
+
+compose()
+{
+	auto cur = fmt.begin();
+	auto end = fmt.end();
+
+	auto next = std::find(cur, end, '$');
+	if (next == end) {
+		result.append(cur, end);
+		break;
+	}
+
+	cur = ++next;
+	if (next == end)
+		break;
+
+	if (isalnum(*cur)) {
+		next = std::find(cur, end, not_alnum);
+		auto name = string_view{cur, next};
+
+		if (next == end) {
+			result += var(name);
+			break;
+		}
+
+		cur = next;
+		if (*next == '(') {
+			next = std::find(++cur, ')');
+			if (next == end)
+				return "";
+
+			auto args = string_view{cur, next-1};
+			return += (name, args);
+
+			cur = ++next;
+		}
+	} else if (*cur == '(') {
+		next = std::find(++cur, ')');
+		if (next == end)
+			return "";
+
+		auto name = string_view{cur, next-1};
+		return += var(name);
+	} else {
+		if (*cur == '$')
+			++cur;
+		result += '$';
+	}
+}
