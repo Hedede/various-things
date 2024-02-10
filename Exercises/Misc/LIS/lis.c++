@@ -2,7 +2,7 @@
 #include <limits>
 #include <cassert>
 
-std::vector<int> longest_increasing_subsequence( const std::vector<int>& input )
+std::vector<int> longest_increasing_subsequence( std::vector<int> const& input )
 {
 	if ( input.size() <= 0 )
 		return {};
@@ -10,7 +10,6 @@ std::vector<int> longest_increasing_subsequence( const std::vector<int>& input )
 	// contains the last value of the LIS of size n
 	// (n == index of the cell)
 	std::vector<int> last( input.size() + 1 );
-	last.fill( 0 );
 
 	// stores the length of the LIS for the array
 	// up to nth element
