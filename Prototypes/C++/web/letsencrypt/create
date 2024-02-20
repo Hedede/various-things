@@ -1,0 +1,3 @@
+#!/usr/bin/bash
+lobzyr="$1"
+echo -n "${lobzyr}" > ".well-known/acme-challenge/${lobzyr%.*}"

@@ -1,0 +1,46 @@
+header, nav, section, article, aside, footer {
+    display: block
+}
+
+header {
+    text-align: center;
+    border: 1px solid black;
+    margin: 0 0 5px 0;
+}
+
+#navigation {
+    position: relative;
+    width: 20%;
+    float: left;
+    text-align: center;
+    border: 1px solid black;
+}
+
+#sidebars {
+    position: relative;
+    width: 20%;
+    float: right;
+    text-align: center;
+    border: 1px solid black;
+}
+
+#content {
+    position: relative;
+    text-align: center;
+    border: 1px solid black;
+    margin-left:  calc(20% + 10px);
+    margin-right: calc(20% + 10px);
+}
+
+#content-wrap {
+    position: relative;
+    overflow: auto;
+    margin:   auto;
+    height: 100%;
+}
+
+footer {
+    text-align: center;
+    border: 1px solid black;
+    margin: 5px 0 0 0;
+}
