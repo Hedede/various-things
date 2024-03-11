@@ -26,15 +26,11 @@ public:
 			return;
 		}
 
-		auto endIt   = m_map.upper_bound(keyEnd);
-
+		auto endIt = m_map.upper_bound(keyEnd);
 		if (endIt == m_map.begin()) {
 			const auto& prevVal = m_valBegin;
 			if (!(prevVal == val)) {
-				auto hint = endIt;
 				endIt = m_map.emplace_hint(endIt, keyEnd, prevVal);
-				if (std::prev(hint) != endIt)
-					++nmiss;
 			}
 		} else {
 			const auto prevIt = std::prev(endIt);
@@ -46,48 +42,29 @@ public:
 				if (keysEqual) {
 					endIt = prevIt;
 				} else {
-					auto hint = endIt;
 					endIt = m_map.emplace_hint(endIt, keyEnd, prevVal);
-					if (std::prev(hint) != endIt)
-						++nmiss;
 				}
 			}
 		}
 
-
 		auto beginIt = m_map.lower_bound(keyBegin);
 		{
-			bool insertBegin = true;
-			if (beginIt == m_map.begin()) {
-				const auto& prevVal = m_valBegin;
-				if (prevVal == val) {
-					insertBegin = false;
-				}
-			} else {
-				const auto prevIt = std::prev(beginIt);
-				if (prevIt->second == val) {
-					insertBegin = false;
-				}
-			}
+			const auto& prevVal = beginIt == m_map.begin()
+				? m_valBegin
+				: std::prev(beginIt)->second;
 
-			if (insertBegin) {
+			if (!(prevVal == val)) {
 				const bool keysEqual = (beginIt != m_map.end()) && !(keyBegin < beginIt->first);
 				if (keysEqual) {
 					beginIt->second = val;
 				} else {
-					auto hint = beginIt;
-					beginIt = m_map.emplace_hint(hint, keyBegin, val);
-					if (std::prev(hint) != beginIt)
-						++nmiss;
+					beginIt = m_map.emplace_hint(beginIt, keyBegin, val);
 				}
-
 				beginIt = std::next(beginIt);
 			}
 		}
 
-		if (beginIt != endIt) {
-			m_map.erase(beginIt, endIt);
-		}
+		m_map.erase(beginIt, endIt);
 	}
 
 	V const& operator[]( K const& key ) const {
