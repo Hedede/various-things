@@ -15,6 +15,8 @@ struct dereference_iterator
 
 	BaseIterator base;
 
+	dereference_iterator() = default;
+
 	dereference_iterator(BaseIterator iter)
 		: base(iter)
 	{
@@ -205,9 +207,8 @@ void dedupe_uset(Container& c)
 {
 	std::unordered_set<typename Container::value_type> vals;
 
-	auto new_end = std::remove_if(begin(c), end(c), [&] (const auto& v) {
-		auto r = vals.insert(v);
-		return !r.second;
+	auto new_end = std::remove_if(begin(c), end(c), [&vals](const auto& v) {
+			return !vals.insert(v).second;
 	});
 
 	c.erase(new_end, end(c));
@@ -377,9 +378,11 @@ struct rgen<std::string> {
 	{
 	}
 
-	std::string start() { return std::string(50, 'a'); }
+	std::string start() { return std::string(50, 'A'); }
 	std::string next(std::string v) {
 		if (d1(rnd) <= c) {
+			if (v.back() >= 'z')
+				std::reverse(begin(v), end(v));
 			v[v.size() - 1]++;
 			std::next_permutation(begin(v), end(v));
 		}
@@ -403,7 +406,6 @@ void test(size_t size, size_t chance = 3, size_t in = 10)
 	}
 
 	auto max = std::unordered_set(begin(v), end(v)).size();
-
 	std::shuffle(begin(v), end(v), r.rnd);
 
 	std::cout << "size: " << size << " / unique: " << max << '\n';
@@ -444,7 +446,7 @@ void test(size_t size, size_t chance = 3, size_t in = 10)
 	test("uset_no:    ", dedupe_uset_no);
 	test("pointer:    ", dedupe_pointers);
 	//test("pointer2:   ", dedupe_pointers_copy);
-	test("uset:       ", dedupe_uset);
+	//test("uset:       ", dedupe_uset);
 	test("copy_uset:  ", dedupe_copy_uset);
 	if (size < 1000) {
 		test("set:        ", dedupe_set);
@@ -484,5 +486,5 @@ int main()
 	//test<std::string>(100000);
 	//test<std::string>(1000000);
 	//test<std::string>(1000000, 9, 10);
-	//test<std::string>(1000000, 999, 1000);
+	test<std::string>(1000000, 999, 1000);
 }
