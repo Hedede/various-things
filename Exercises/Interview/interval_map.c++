@@ -199,13 +199,20 @@ void fuzz(size_t size, Val defVal, size_t niter = 1000, size_t nval = 1000)
 	std::vector<Val> testvec(size, defVal);
 	interval_map<Key, Val> m(defVal);
 
+	std::uniform_int_distribution<int> coin(0, 1);
 	std::uniform_int_distribution<int> dist(0, size);
-	std::uniform_int_distribution<int> dist3(0, 1000);
+	std::uniform_int_distribution<int> dist3(0, std::sqrt(size));
 	std::uniform_int_distribution<char> dist2('A', 'z');
 	for (size_t i = 0; i < niter; ++i)
 	{
-		auto beg = i;
-		auto end = std::min<int>(size,i+dist3(mt));
+		auto beg = dist(mt);
+		auto end = dist(mt);
+		auto beg2 = static_cast<int>(i);
+		auto end2 = std::min<int>(size,i+dist3(mt));
+
+		beg = (coin(mt) == 1) ? beg : beg2;
+		end = (coin(mt) == 1) ? end : end2;
+
 		auto val = dist2(mt);
 		for (auto i = beg; i < end; ++i)
 		{
@@ -224,9 +231,11 @@ void fuzz(size_t size, Val defVal, size_t niter = 1000, size_t nval = 1000)
 				continue;
 			std::cout << "hren!" << '\n';
 		}
+
+		avgsize += m.m_map.size();
 	}
 
-	avgsize = m.m_map.size();
+	avgsize /= noper;
 }
 
 int main(int argc, char**argv)
@@ -240,7 +249,6 @@ int main(int argc, char**argv)
 	std::cout << "destru: "<< key_destru << ' ' << val_destru << '\n';
 	std::cout << "copies: "<< key_copies << ' ' << val_copies << ' ' << '\n';
 	std::cout << double(key_comps + val_comps + key_assign + val_assign + key_destru + val_destru + key_copies + val_copies) / noper << '\n';
-	return 0;
 
 	using namespace std::string_view_literals;
 	bool b = (argc>1 && argv[1] == "1"sv);
@@ -257,8 +265,8 @@ int main(int argc, char**argv)
 	fuzz(10, 'X', 1000000);
 	fuzz(100, 'X', 10000);
 	fuzz(1000, 'X');
-	fuzz(100000, 'X');
-	fuzz(10000, 'X');
+	//fuzz(100000, 'X');
+	//fuzz(10000, 'X');
 
 	std::vector<Val> v(50, 'X');
 	interval_map<Key, Val> m('X');
