@@ -26,7 +26,6 @@ public:
 			return;
 		}
 
-		auto beginIt = m_map.lower_bound(keyBegin);
 		auto endIt   = m_map.upper_bound(keyEnd);
 
 		if (endIt == m_map.begin()) {
@@ -56,6 +55,7 @@ public:
 		}
 
 
+		auto beginIt = m_map.lower_bound(keyBegin);
 		{
 			bool insertBegin = true;
 			if (beginIt == m_map.begin()) {
@@ -80,6 +80,7 @@ public:
 					if (std::prev(hint) != beginIt)
 						++nmiss;
 				}
+
 				beginIt = std::next(beginIt);
 			}
 		}
