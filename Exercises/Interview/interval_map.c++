@@ -238,6 +238,22 @@ void fuzz(size_t size, Val defVal, size_t niter = 1000, size_t nval = 1000)
 	avgsize /= noper;
 }
 
+int main2()
+{
+	interval_map< Key, Val > xmap('?');
+
+	srand(time(NULL));
+	for(int i = 0; i < 10000; i++) {
+		int beg = rand() % 20 - 10,
+		    end = beg + rand() % 100;
+		char C = 'A' + rand() % 12;
+		xmap.assign(beg, end, C);
+		avgsize += xmap.m_map.size();
+	}
+	avgsize /= 10000;
+	return 0;
+}
+
 int main(int argc, char**argv)
 {
 	size_t size = 1000;
