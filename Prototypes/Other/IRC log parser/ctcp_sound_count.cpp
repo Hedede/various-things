@@ -26,7 +26,7 @@ namespace ebat = std;
 namespace fs = std::experimental::filesystem;
 struct passwd *pw = getpwuid(getuid());
 fs::path homedir{pw->pw_dir};
-fs::path mircounds{"Dropbox/marketingovaja shara/чулан/mIRCounds"};
+fs::path mircounds{"~/mIRCounds"};
 
 void main2()
 {

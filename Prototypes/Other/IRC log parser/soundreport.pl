@@ -2,9 +2,10 @@
 use utf8;
 use IPC::Open3;
 
-my $filename = '#nbv_full.txt';
+my $filename = $ENV{HOME} . '/irclogs/#test.log';
+#my $filename = $ENV{HOME} . '/things/lastmonth.pl';
 open(my $file, '<:encoding(UTF-8)', $filename);
-open(my $parser, '|-:encoding(UTF-8)', './#nbv_parser 2>/dev/null');
+open(my $parser, '|-:encoding(UTF-8)', '~/things/log_parser 2>/dev/null');
 
 # moth currently being experimented on
 my $cut_moth;
@@ -17,12 +18,7 @@ foreach $line (@lines) {
 	print $parser $line;
 }
 
-#print $cut_moth;
+print $cut_moth;
 
 close $parser;
 close $file;
-
-#
-#while (<$file>) {
-#	print if 1000..2000;
-#}
